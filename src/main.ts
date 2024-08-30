@@ -17,6 +17,14 @@ async function bootstrap() {
     .setTitle("Ivy server")
     .setDescription("Ivy fashion store web server using Nest JS")
     .setVersion("1.0")
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "Bearer",
+        bearerFormat: "JWT",
+      },
+      "authorization",
+    )
     .addServer("/")
     .build();
 

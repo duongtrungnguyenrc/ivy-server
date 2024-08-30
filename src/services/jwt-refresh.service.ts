@@ -26,17 +26,11 @@ export class JwtRefreshService {
     const currentTime = Math.floor(Date.now() / 1000);
     const tokenValidTime = (decodeRequestken["exp"] - currentTime) * 1000;
 
-    this.cacheManager.set(
-      joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token),
-      token,
-      tokenValidTime,
-    );
+    this.cacheManager.set(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
   }
 
   async verifyToken(token: string): Promise<any> {
-    const revokeToken = await this.cacheManager.get(
-      joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token),
-    );
+    const revokeToken = await this.cacheManager.get(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token));
 
     if (revokeToken) return;
 

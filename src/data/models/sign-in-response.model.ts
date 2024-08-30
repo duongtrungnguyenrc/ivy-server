@@ -1,8 +1,9 @@
-import { BaseResponse } from "./base-response";
+import { ApiResponseProperty } from "@nestjs/swagger";
 
-export class SignInResponse extends BaseResponse {
-  data: {
-    accessToken: string;
-    refreshToken: string;
-  };
+export class SignInResponse implements BaseResponse {
+  @ApiResponseProperty()
+  data: TokenPair;
+
+  @ApiResponseProperty()
+  message: string;
 }

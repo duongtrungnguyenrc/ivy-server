@@ -1,10 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { genSalt, hash } from "bcrypt";
+import { decode } from "jsonwebtoken";
+import { Request } from "express";
 import { Model } from "mongoose";
 
 import { User } from "@app/schemas";
 import { Cache } from "@nestjs/cache-manager";
 import { InjectModel } from "@nestjs/mongoose";
+import { getTokenFromRequest } from "@app/utils";
 
 @Injectable()
 export class UserService {
@@ -14,18 +17,32 @@ export class UserService {
     private readonly cacheManager: Cache,
   ) {}
 
-  async getUserByEmail(
-    email: string,
-    includes: (keyof User)[] = [],
-  ): Promise<User> {
+  async getUserByEmail(email: string, includes: (keyof User)[] = []): Promise<User> {
     const includeQueries = includes.map((key) => {
       return `+${key}`;
     });
 
-    const user: User = await this.userModel.findOne(
-      { email: email },
-      includeQueries,
-    );
+    const user: User = await this.userModel.findOne({ email: email }, includeQueries);
+
+    return user;
+  }
+
+  async getOneUser(query: Partial<User>, includes: (keyof User)[] = []): Promise<User> {
+    const includeQueries = includes.map((key) => {
+      return `+${key}`;
+    });
+
+    const user: User = await this.userModel.findOne({ ...query }, includeQueries);
+
+    return user;
+  }
+
+  async getUsers(query: Partial<User>, includes: (keyof User)[] = []): Promise<User[]> {
+    const includeQueries = includes.map((key) => {
+      return `+${key}`;
+    });
+
+    const user: User[] = await this.userModel.find({ ...query }, includeQueries);
 
     return user;
   }
@@ -42,5 +59,17 @@ export class UserService {
     });
 
     return createdUser;
+  }
+
+  async updateUser(payload: Partial<User>, updates: Partial<User>): Promise<User> {
+    return this.userModel.findOneAndUpdate(payload, updates, { new: true });
+  }
+
+  getUserIdFromAuth(request: Request): string {
+    const accessToken = getTokenFromRequest(request);
+
+    const payload = decode(accessToken);
+
+    return payload?.["userId"];
   }
 }

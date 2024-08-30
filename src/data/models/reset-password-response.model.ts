@@ -1,6 +1,6 @@
 import { ApiResponseProperty } from "@nestjs/swagger";
 
-export class SignUpResponse implements BaseResponse {
+export class ResetPasswordResponse implements BaseResponse {
   @ApiResponseProperty()
   data: boolean;
 
