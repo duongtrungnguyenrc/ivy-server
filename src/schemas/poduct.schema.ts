@@ -1,10 +1,10 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import mongoose from "mongoose";
 
+import { Collection, Cost, Option } from ".";
 import { BaseSchema } from "./base.schema";
-import { Collection, Cost } from ".";
 
-@Schema()
+@Schema({ timestamps: true })
 export class Product extends BaseSchema {
   @Prop()
   name: string;
@@ -21,8 +21,17 @@ export class Product extends BaseSchema {
   @Prop()
   material: string;
 
+  @Prop({ type: Date })
+  createAt: Date;
+
+  @Prop({ type: Date })
+  updatedAt: Date;
+
   @Prop({ type: mongoose.Types.ObjectId, ref: "Collection" })
   collection: Collection;
+
+  @Prop({ type: [{ type: mongoose.Types.ObjectId, ref: "Collection" }], ref: "Option" })
+  options: Option[];
 
   @Prop({ type: mongoose.Types.ObjectId, ref: "Cost" })
   cost: Cost;

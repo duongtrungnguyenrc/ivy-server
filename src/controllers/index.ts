@@ -1,2 +1,6 @@
 export * from "./test.controller";
 export * from "./auth.controller";
+export * from "./product.controller";
+export * from "./group.controller";
+export * from "./collection.controller";
+export * from "./category.controller";

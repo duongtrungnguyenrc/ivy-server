@@ -15,7 +15,7 @@ import {
   ForgotPasswordResponse,
   ResetPasswordPayload,
   ResetPasswordResponse,
-} from "@app/data";
+} from "@app/models";
 
 @Controller("auth")
 @ApiTags("auth")

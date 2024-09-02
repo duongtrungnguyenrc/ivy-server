@@ -4,12 +4,22 @@ import { CacheModule } from "@nestjs/cache-manager";
 import { MongooseModule } from "@nestjs/mongoose";
 import { Module } from "@nestjs/common";
 
+import { CollectionModule } from "./collection.module";
 import { TestController } from "@app/controllers";
+import { ProductModule } from "./product.module";
+import { GroupModule } from "./group.module";
 import { AuthModule } from "./auth.module";
+import { UserModule } from "./user.module";
+import { CategoryModule } from "./category.module";
 
 @Module({
   imports: [
+    UserModule,
     AuthModule,
+    CategoryModule,
+    GroupModule,
+    CollectionModule,
+    ProductModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => {

@@ -1,15 +1,17 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 
-import { ProductType } from "@app/data";
 import { BaseSchema } from "./base.schema";
 
-@Schema()
+@Schema({ timestamps: true })
 export class Collection extends BaseSchema {
-  @Prop({ type: String, enum: ProductType })
-  gender: ProductType;
-
   @Prop()
   name: string;
+
+  @Prop({ type: Date })
+  createdAt: Date;
+
+  @Prop({ type: Date })
+  updatedAt: Date;
 }
 
 export const CollectionSchema = SchemaFactory.createForClass(Collection);

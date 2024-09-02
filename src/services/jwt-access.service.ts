@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Cache } from "@nestjs/cache-manager";
 
-import { REVOKE_ACCESS_TOKEN_CACHE_PREFIX } from "@app/data";
+import { REVOKE_ACCESS_TOKEN_CACHE_PREFIX } from "@app/constants";
 import { joinCacheKey } from "@app/utils";
 
 @Injectable()

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 
-import { Gender } from "@app/data";
 import { BaseSchema } from "./base.schema";
+import { Gender, Role } from "@app/enums";
 
 @Schema()
 export class User extends BaseSchema {
@@ -22,6 +22,9 @@ export class User extends BaseSchema {
 
   @Prop({ type: String, enum: Gender })
   gender: Gender;
+
+  @Prop({ type: String, enum: Role, default: Role.USER })
+  role: Role;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

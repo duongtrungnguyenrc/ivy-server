@@ -1,13 +1,13 @@
+import { InjectModel } from "@nestjs/mongoose";
+import { Cache } from "@nestjs/cache-manager";
 import { Injectable } from "@nestjs/common";
 import { genSalt, hash } from "bcrypt";
 import { decode } from "jsonwebtoken";
 import { Request } from "express";
 import { Model } from "mongoose";
 
-import { User } from "@app/schemas";
-import { Cache } from "@nestjs/cache-manager";
-import { InjectModel } from "@nestjs/mongoose";
 import { getTokenFromRequest } from "@app/utils";
+import { User } from "@app/schemas";
 
 @Injectable()
 export class UserService {
@@ -17,7 +17,7 @@ export class UserService {
     private readonly cacheManager: Cache,
   ) {}
 
-  async getUserByEmail(email: string, includes: (keyof User)[] = []): Promise<User> {
+  async findUserByEmail(email: string, includes: (keyof User)[] = []): Promise<User> {
     const includeQueries = includes.map((key) => {
       return `+${key}`;
     });
@@ -27,7 +27,7 @@ export class UserService {
     return user;
   }
 
-  async getOneUser(query: Partial<User>, includes: (keyof User)[] = []): Promise<User> {
+  async findOneUser(query: Partial<User>, includes: (keyof User)[] = []): Promise<User> {
     const includeQueries = includes.map((key) => {
       return `+${key}`;
     });
@@ -37,7 +37,7 @@ export class UserService {
     return user;
   }
 
-  async getUsers(query: Partial<User>, includes: (keyof User)[] = []): Promise<User[]> {
+  async findUsers(query: Partial<User>, includes: (keyof User)[] = []): Promise<User[]> {
     const includeQueries = includes.map((key) => {
       return `+${key}`;
     });
@@ -65,7 +65,7 @@ export class UserService {
     return this.userModel.findOneAndUpdate(payload, updates, { new: true });
   }
 
-  getUserIdFromAuth(request: Request): string {
+  extractUserIdFromAuth(request: Request): string {
     const accessToken = getTokenFromRequest(request);
 
     const payload = decode(accessToken);

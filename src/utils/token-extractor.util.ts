@@ -1,7 +1,7 @@
 import { UnauthorizedException } from "@nestjs/common";
 import { Request } from "express";
 
-import { TOKEN_TYPE } from "@app/data";
+import { TOKEN_TYPE } from "@app/constants";
 
 export const getTokenFromRequest = (request: Request): string => {
   const authorizationHeader = request.headers["authorization"];

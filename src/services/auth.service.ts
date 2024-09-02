@@ -4,15 +4,12 @@ import { compare, genSalt, hash } from "bcrypt";
 import { Cache } from "@nestjs/cache-manager";
 import { Request } from "express";
 
+import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { getTokenFromRequest, joinCacheKey } from "@app/utils";
 import { JwtAccessService, JwtRefreshService } from ".";
 import { UserService } from "./user.service";
 import { User } from "@app/schemas";
 import {
-  ACCESS_PAIR_CACHE_PREFIX,
-  OTP_LENGTH,
-  OTP_TTL,
-  RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX,
   SignInPayload,
   SignInResponse,
   SignOutResponse,
@@ -23,7 +20,7 @@ import {
   ForgotPasswordResponse,
   ResetPasswordPayload,
   ResetPasswordResponse,
-} from "@app/data";
+} from "@app/models";
 
 @Injectable()
 export class AuthService {
@@ -38,7 +35,7 @@ export class AuthService {
   async validateUser(payload: SignInPayload): Promise<boolean> {
     const { email, password } = payload;
 
-    const user: User = await this.userService.getUserByEmail(email, ["password"]);
+    const user: User = await this.userService.findUserByEmail(email, ["password"]);
 
     if (!user) throw new UnauthorizedException("User not found!");
 
@@ -50,7 +47,7 @@ export class AuthService {
   async signIn(payload: SignInPayload): Promise<SignInResponse> {
     const { email } = payload;
 
-    const user: User = await this.userService.getUserByEmail(email, ["password"]);
+    const user: User = await this.userService.findUserByEmail(email, ["password"]);
 
     const cachedTokenPair: TokenPair = await this.getCachedTokenPair(user._id);
 
@@ -59,6 +56,7 @@ export class AuthService {
     if (!responseData) {
       const tokenPayload: JwtPayload = {
         userId: user._id,
+        role: user.role,
       };
 
       const tokenPair: TokenPair = this.generateTokenPair(tokenPayload);
@@ -97,7 +95,7 @@ export class AuthService {
   }
 
   async signOut(request: Request): Promise<SignOutResponse> {
-    const userId: string = this.userService.getUserIdFromAuth(request);
+    const userId: string = this.userService.extractUserIdFromAuth(request);
 
     if (!userId) {
       throw new UnauthorizedException("Token invalid");
@@ -133,7 +131,7 @@ export class AuthService {
   }
 
   async forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
-    const { _id, email, name }: User = await this.userService.getOneUser(payload);
+    const { _id, email, name }: User = await this.userService.findOneUser(payload);
 
     if (!_id) {
       throw new BadRequestException("User not found");

@@ -1,5 +1,8 @@
+declare type Roles = "ADMIN" | "USER";
+
 declare type JwtPayload = {
   userId: string;
+  role: Roles;
 };
 
 declare type TokenPair = {
@@ -15,4 +18,9 @@ declare type BaseResponse = {
 declare type ResetPasswordTransactionPayload = {
   userId: string;
   otpCode: string;
+};
+
+declare type Pagination = {
+  page: number;
+  limit: number;
 };
