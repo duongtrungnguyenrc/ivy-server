@@ -35,6 +35,10 @@ export class AuthController {
     return this.authService.signIn(payload);
   }
 
+  @UseGuards(JWTAccessAuthGuard)
+  @Post("token-auth")
+  tokenAuth() {}
+
   @Post("sign-up")
   @ApiBody({
     type: SignUpPayload,

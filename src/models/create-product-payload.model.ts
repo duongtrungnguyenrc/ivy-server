@@ -7,6 +7,10 @@ class CreateOptionPayload {
   colorHexCode: string;
 
   @ApiProperty()
+  @IsNumber()
+  stock: number;
+
+  @ApiProperty()
   @IsArray()
   images: string[];
 }
@@ -39,10 +43,6 @@ export class CreateProductPayload {
   @IsNotEmpty()
   @IsString()
   description: string;
-
-  @ApiProperty()
-  @IsNumber()
-  quantity: number;
 
   @ApiProperty()
   @IsNotEmpty()

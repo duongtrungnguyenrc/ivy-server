@@ -12,9 +12,6 @@ export class Product extends BaseSchema {
   @Prop()
   description: string;
 
-  @Prop({ default: 0 })
-  quantity: number;
-
   @Prop()
   preserveDescription: string;
 

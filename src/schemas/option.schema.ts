@@ -7,7 +7,13 @@ export class Option extends BaseSchema {
   colorHexCode: string;
 
   @Prop()
+  colorName: string;
+
+  @Prop()
   images: string[];
+
+  @Prop({ default: 0 })
+  stock: number;
 }
 
 export const OptionSchema = SchemaFactory.createForClass(Option);

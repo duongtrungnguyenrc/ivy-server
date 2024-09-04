@@ -37,9 +37,11 @@ export class AuthService {
 
     const user: User = await this.userService.findUserByEmail(email, ["password"]);
 
-    if (!user) throw new UnauthorizedException("User not found!");
+    if (!user) throw new BadRequestException("User not found!");
 
     const isMatch: boolean = await compare(password, user.password);
+
+    if (!isMatch) throw new BadRequestException("Invalid password!");
 
     return isMatch;
   }
