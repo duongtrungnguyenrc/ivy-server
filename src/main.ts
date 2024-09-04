@@ -1,6 +1,7 @@
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import "tsconfig-paths/register";
 
 import { AppModule } from "@app/modules";
 import * as compression from "compression";
