@@ -1,9 +1,9 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsBoolean, IsOptional, IsString } from "class-validator";
+import { IsBoolean, IsMongoId, IsOptional } from "class-validator";
 
 export class CreateCollectionPayload {
   @ApiProperty({ type: String })
-  @IsString()
+  @IsMongoId()
   groupId: string;
 
   @IsOptional()

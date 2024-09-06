@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import { BaseSchema } from "./base.schema";
+import { Size } from "@app/enums";
 
 @Schema()
 export class Option extends BaseSchema {
@@ -8,6 +9,9 @@ export class Option extends BaseSchema {
 
   @Prop()
   colorName: string;
+
+  @Prop({ type: String, enum: Size })
+  size: Size;
 
   @Prop()
   images: string[];

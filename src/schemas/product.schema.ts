@@ -31,7 +31,10 @@ export class Product extends BaseSchema {
   options: Option[];
 
   @Prop({ type: mongoose.Types.ObjectId, ref: "Cost" })
-  cost: Cost;
+  currentCost: Cost;
+
+  @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Cost", default: [] })
+  costs: Cost[];
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);

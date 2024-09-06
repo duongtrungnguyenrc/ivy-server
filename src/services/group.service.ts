@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model } from "mongoose";
+import { FilterQuery, Model } from "mongoose";
 
 import {
   CreateGroupPayload,
@@ -92,7 +92,7 @@ export class GroupService {
     return await this.GroupModel.findById(id);
   }
 
-  async findGroups(query: Partial<Group>): Promise<Group[]> {
+  async findGroups(query: FilterQuery<Group>): Promise<Group[]> {
     return await this.GroupModel.find(query);
   }
 }

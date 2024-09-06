@@ -1,6 +1,5 @@
 import { Injectable } from "@nestjs/common";
 
-import { CollectionService } from "./collection.service";
 import { GroupService } from "./group.service";
 import { GetCategoriesResponse } from "@app/models";
 import { ProductCategory } from "@app/enums";

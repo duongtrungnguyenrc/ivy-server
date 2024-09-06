@@ -8,7 +8,7 @@ import {
   GetCollectionResponse,
   GetCollectionsResponse,
 } from "@app/models";
-import { Collection, Group } from "@app/schemas";
+import { Collection } from "@app/schemas";
 import { GroupService } from "./group.service";
 
 @Injectable()

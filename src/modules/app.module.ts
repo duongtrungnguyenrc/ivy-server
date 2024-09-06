@@ -11,6 +11,8 @@ import { GroupModule } from "./group.module";
 import { AuthModule } from "./auth.module";
 import { UserModule } from "./user.module";
 import { CategoryModule } from "./category.module";
+import { OrderModule } from "./order.module";
+import { CartModule } from "./cart.module";
 
 @Module({
   imports: [
@@ -20,12 +22,15 @@ import { CategoryModule } from "./category.module";
     GroupModule,
     CollectionModule,
     ProductModule,
+    CartModule,
+    OrderModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => {
         return {
           store: redisStore,
           url: configService.get<string>("REDIS_URL"),
+          ttl: configService.get<number>("REDIS_TTL"),
         };
       },
       isGlobal: true,

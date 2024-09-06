@@ -3,21 +3,26 @@ import { Request } from "express";
 
 import { TOKEN_TYPE } from "@app/constants";
 
-export const getTokenFromRequest = (request: Request): string => {
+export const getTokenFromRequest = (request: Request, raw: boolean = false): string => {
   const authorizationHeader = request.headers["authorization"];
 
-  if (!authorizationHeader) {
-    throw new UnauthorizedException("Invalid authorization token!");
+  if (!authorizationHeader && !raw) {
+    throw new UnauthorizedException("Authorization header missing!");
   }
 
-  const [tokenType, authToken] = request.headers["authorization"]?.split(" ");
+  const [tokenType, authToken] = authorizationHeader?.split(" ") ?? [];
 
-  if (tokenType !== TOKEN_TYPE) {
+  if (!tokenType && !raw) {
+    throw new UnauthorizedException("Token type is missing!");
+  }
+
+  if (tokenType !== TOKEN_TYPE && !raw) {
     throw new UnauthorizedException("Invalid token type!");
   }
 
-  if (!authToken) {
-    throw new UnauthorizedException("Invalid authorization token!");
+  if (!authToken && !raw) {
+    throw new UnauthorizedException("Authorization token is missing!");
   }
+
   return authToken;
 };

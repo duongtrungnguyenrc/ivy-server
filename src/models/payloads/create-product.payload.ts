@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsArray, IsNotEmpty, IsNumber, IsString } from "class-validator";
+import { IsArray, IsMongoId, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 class CreateOptionPayload {
   @ApiProperty()
@@ -18,15 +18,15 @@ class CreateOptionPayload {
 class CreateCostPayload {
   @ApiProperty()
   @IsNumber()
-  ingredientPrice: number;
+  ingredientCost: number;
 
   @ApiProperty()
   @IsNumber()
-  production_cost: number;
+  productionCost: number;
 
   @ApiProperty()
   @IsNumber()
-  sale_cost: number;
+  saleCost: number;
 
   @ApiProperty()
   @IsNumber()
@@ -56,7 +56,7 @@ export class CreateProductPayload {
 
   @ApiProperty()
   @IsNotEmpty()
-  @IsString()
+  @IsMongoId()
   collectionId: string;
 
   @ApiProperty({ type: [CreateOptionPayload] })

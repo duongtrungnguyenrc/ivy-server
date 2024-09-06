@@ -1,11 +1,8 @@
-import { ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
+import { ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Reflector } from "@nestjs/core";
-import { decode } from "jsonwebtoken";
 import { Observable } from "rxjs";
-import { Request } from "express";
 
-import { getTokenFromRequest } from "@app/utils";
 import { RoleType } from "@app/decorators";
 
 @Injectable()
@@ -15,24 +12,26 @@ export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
   }
 
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    const canActivate = super.canActivate(context);
-    const roles = this.reflector?.get<RoleType[]>("roles", context.getHandler());
+    return super.canActivate(context);
+  }
 
-    console.log(this.reflector);
-
-    if (!roles || roles.includes("*")) {
-      return canActivate;
+  handleRequest(err: any, user: any, _: any, context: ExecutionContext) {
+    if (err || !user) {
+      throw err || new UnauthorizedException("Authentication failed");
     }
 
-    const request: Request = context.switchToHttp().getRequest();
-    const token: string = getTokenFromRequest(request);
+    const roles = this.reflector.get<RoleType[]>("roles", context.getHandler());
 
-    const decodedToken: JwtPayload = decode(token) as JwtPayload;
+    if (!roles || roles.includes("*")) {
+      return user;
+    }
 
-    if (!roles.includes(decodedToken.role)) {
+    const userRole = user.role;
+
+    if (!roles.includes(userRole)) {
       throw new ForbiddenException("You do not have permission to access this resource");
     }
 
-    return canActivate;
+    return user;
   }
 }

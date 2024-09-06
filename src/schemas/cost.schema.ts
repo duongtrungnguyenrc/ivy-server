@@ -5,13 +5,13 @@ import { BaseSchema } from "./base.schema";
 @Schema()
 export class Cost extends BaseSchema {
   @Prop()
-  ingredientPrice: number;
+  ingredientCost: number;
 
   @Prop()
-  production_cost: number;
+  productionCost: number;
 
   @Prop()
-  sale_cost: number;
+  saleCost: number;
 
   @Prop()
   discountPercentage: number;

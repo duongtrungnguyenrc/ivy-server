@@ -2,7 +2,7 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import mongoose from "mongoose";
 
 import { BaseSchema } from "./base.schema";
-import { Product } from "./poduct.schema";
+import { Product } from "./product.schema";
 import { User } from "./user.schema";
 
 @Schema()

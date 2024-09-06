@@ -1,16 +1,10 @@
-import { ProductController } from "@app/controllers";
-import {
-  Cost,
-  CostSchema,
-  Option,
-  OptionSchema,
-  Product,
-  ProductSchema,
-} from "@app/schemas";
-import { ProductService } from "@app/services";
-import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
+import { Module } from "@nestjs/common";
+
+import { Cost, CostSchema, Option, OptionSchema, Product, ProductSchema } from "@app/schemas";
 import { CollectionModule } from "./collection.module";
+import { ProductController } from "@app/controllers";
+import { ProductService } from "@app/services";
 
 @Module({
   imports: [
@@ -32,5 +26,6 @@ import { CollectionModule } from "./collection.module";
   ],
   controllers: [ProductController],
   providers: [ProductService],
+  exports: [ProductService],
 })
 export class ProductModule {}

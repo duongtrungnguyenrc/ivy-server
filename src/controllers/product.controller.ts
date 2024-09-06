@@ -1,10 +1,9 @@
-import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Body, Controller, Delete, Post, Put, UseGuards } from "@nestjs/common";
+import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Param, Post, Put, UseGuards } from "@nestjs/common";
 
 import {
   CreateProductPayload,
   CreateProductResponse,
-  DeleteProductPayload,
   DeleteProductResponse,
   UpdateProductPayload,
   UpdateProductResponse,
@@ -44,12 +43,12 @@ export class ProductController {
     return this.productService.updateProduct(payload);
   }
 
-  @Delete("/")
+  @Delete("/:id")
   @UseGuards(JWTAccessAuthGuard)
   @HasRole("ADMIN")
-  @ApiBody({ type: DeleteProductPayload })
+  @ApiParam({ type: String, name: "id" })
   @ApiResponse({ type: DeleteProductResponse })
-  deleteProduct(@Body() payload: DeleteProductPayload): Promise<DeleteProductResponse> {
-    return this.productService.deleteProduct(payload);
+  deleteProduct(@Param("id") id: string): Promise<DeleteProductResponse> {
+    return this.productService.deleteProduct(id);
   }
 }

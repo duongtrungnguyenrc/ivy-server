@@ -1,9 +1,9 @@
-import { IsArray, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from "class-validator";
+import { IsArray, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 class UpdateOptionPayload {
   @ApiProperty()
-  @IsString()
+  @IsMongoId()
   id: string;
 
   @ApiProperty()
@@ -18,23 +18,23 @@ class UpdateOptionPayload {
 
 class UpdateCostPayload {
   @ApiProperty()
-  @IsString()
+  @IsMongoId()
   id: string;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
-  ingredientPrice?: number;
+  ingredientCost?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
-  production_cost?: number;
+  productionCost?: number;
 
   @ApiProperty()
   @IsOptional()
   @IsNumber()
-  sale_cost?: number;
+  saleCost?: number;
 
   @ApiProperty()
   @IsOptional()
@@ -44,7 +44,7 @@ class UpdateCostPayload {
 
 export class UpdateProductPayload {
   @ApiProperty()
-  @IsString()
+  @IsMongoId()
   id: string;
 
   @ApiProperty()

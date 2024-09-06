@@ -133,7 +133,9 @@ export class AuthService {
   }
 
   async forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
-    const { _id, email, name }: User = await this.userService.findOneUser(payload);
+    const { _id, email, name }: User = await this.userService.findOneUser({
+      email: payload.email,
+    });
 
     if (!_id) {
       throw new BadRequestException("User not found");

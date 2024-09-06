@@ -1,6 +1,6 @@
 import { ApiProperty } from "@nestjs/swagger";
 
-export class ResetPasswordPayload{
+export class ResetPasswordPayload {
   @ApiProperty()
   otpCode: string;
 
