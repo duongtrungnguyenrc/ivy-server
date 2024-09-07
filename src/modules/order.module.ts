@@ -6,9 +6,11 @@ import { OrderController } from "@app/controllers";
 import { OrderService } from "@app/services";
 import { UserModule } from "./user.module";
 import { ProductModule } from "./product.module";
+import { CartModule } from "./cart.module";
 
 @Module({
   imports: [
+    CartModule,
     UserModule,
     ProductModule,
     MongooseModule.forFeature([

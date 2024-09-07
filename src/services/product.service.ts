@@ -1,12 +1,13 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import mongoose, { Model, UpdateQuery } from "mongoose";
+import { Model, UpdateQuery } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
 import {
   CreateProductPayload,
   CreateProductResponse,
   DeleteProductResponse,
+  GetProductsByCollectionResponse,
   UpdateProductPayload,
   UpdateProductResponse,
 } from "@app/models";
@@ -14,6 +15,7 @@ import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constant
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
 import { joinCacheKey } from "@app/utils";
+import { GroupService } from "./group.service";
 
 @Injectable()
 export class ProductService {
@@ -24,6 +26,7 @@ export class ProductService {
     private readonly optionModel: Model<Option>,
     @InjectModel(Cost.name)
     private readonly costModel: Model<Cost>,
+    private readonly groupService: GroupService,
     private readonly collectionService: CollectionService,
     private readonly cacheManager: Cache,
   ) {}
@@ -34,7 +37,44 @@ export class ProductService {
 
   getProductDetail() {}
 
-  getProductsByCategory() {}
+  async getProductsByCollection(id: string, page: number, limit: number): Promise<GetProductsByCollectionResponse> {
+    const collection: Collection = await this.collectionService.findCollectionById(id);
+
+    if (!collection) {
+      throw new BadRequestException(`Danh mục không tồn tại`);
+    }
+
+    const skip = (page - 1) * limit;
+
+    const totalProducts = await this.productModel.countDocuments({
+      collection: collection._id,
+      isDeleted: false,
+    });
+
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    const products = await this.productModel
+      .find({
+        collection: collection._id,
+        isDeleted: false,
+      })
+      .skip(skip)
+      .limit(limit)
+      .populate(["currentCost", "options"])
+      .exec();
+
+    const response: GetProductsByCollectionResponse = {
+      data: {
+        products: products,
+        page: page,
+        limit: limit,
+        totalPages: totalPages,
+      },
+      message: `Truy vấn sản phẩm mới theo danh mục ${collection.name} thành công`,
+    };
+
+    return response;
+  }
 
   async createProduct(payload: CreateProductPayload): Promise<CreateProductResponse> {
     const { options, cost, collectionId, ...product } = payload;
@@ -60,11 +100,9 @@ export class ProductService {
     const createProducePayload: UpdateQuery<Product> = {
       ...product,
       collection: collection,
-      options: createdOptions.map(({ _id }) => new mongoose.Types.ObjectId(_id)),
-      currentCost: new mongoose.Types.ObjectId(createdCost._id),
-      $push: {
-        costs: createdCost,
-      },
+      options: createdOptions,
+      currentCost: createdCost,
+      costs: [createdCost],
     };
 
     const createdProduct: Product = await this.productModel.create(createProducePayload);
@@ -77,8 +115,8 @@ export class ProductService {
     return response;
   }
 
-  async updateProduct(payload: UpdateProductPayload): Promise<UpdateProductResponse> {
-    const { options, cost, collectionId, id, ...product } = payload;
+  async updateProduct(id: string, payload: UpdateProductPayload): Promise<UpdateProductResponse> {
+    const { options, cost, collectionId, ...product } = payload;
 
     const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
 
@@ -131,7 +169,20 @@ export class ProductService {
   }
 
   async deleteProduct(id: string): Promise<DeleteProductResponse> {
-    return;
+    const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, {
+      isDeleted: true,
+    });
+
+    if (!updatedProduct) {
+      throw new BadRequestException("Sản phẩm không tồn tại");
+    }
+
+    const response: DeleteProductResponse = {
+      data: true,
+      message: "Xoá sản phẩm thành công",
+    };
+
+    return response;
   }
 
   async updateProductOptionById(id: string, update: UpdateQuery<Option>, raw: boolean = false): Promise<Option> {

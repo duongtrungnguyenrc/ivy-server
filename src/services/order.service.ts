@@ -13,6 +13,7 @@ import { ProductService } from "./product.service";
 import { UserService } from "./user.service";
 import { OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
 import { VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
+import { CartService } from "./cart.service";
 
 @Injectable()
 export class OrderService {
@@ -21,6 +22,7 @@ export class OrderService {
     private readonly orderModel: Model<Order>,
     @InjectModel(OrderItem.name)
     private readonly orderItemModel: Model<OrderItem>,
+    private readonly cartService: CartService,
     private readonly productService: ProductService,
     private readonly configService: ConfigService,
     private readonly userServide: UserService,
@@ -34,7 +36,7 @@ export class OrderService {
         const product: Product = await this.productService.findProductById(productId, ["options"]);
         const option: Option = product.options.find(({ _id }) => _id == optionId);
 
-        if (!product) {
+        if (!product || product.isDeleted) {
           throw new BadRequestException(`Sản phẩm ${product.name} không tồn tại`);
         }
 

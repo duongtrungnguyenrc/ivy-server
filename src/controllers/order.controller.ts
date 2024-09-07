@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put, Req, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Req, Res } from "@nestjs/common";
 import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 
 import { CreateOrderResponse, CreateOrderPayload, UpdateOrderPayload, UpdateOrderResponse } from "@app/models";
-import { JWTAccessAuthGuard } from "@app/guards";
 import { OrderService } from "@app/services";
 
 @Controller("order")
@@ -12,7 +11,6 @@ export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
   @Post("/")
-  @UseGuards(JWTAccessAuthGuard)
   @ApiBody({ type: CreateOrderPayload })
   @ApiResponse({ type: CreateOrderResponse })
   createOrder(
@@ -24,7 +22,6 @@ export class OrderController {
   }
 
   @Put("/:id")
-  @UseGuards(JWTAccessAuthGuard)
   @ApiBody({ type: UpdateOrderPayload })
   @ApiResponse({ type: UpdateOrderResponse })
   updateOrder(@Body() payload: UpdateOrderPayload, @Param("id") id: string) {

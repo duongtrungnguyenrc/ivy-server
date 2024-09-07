@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { FilterQuery, Model } from "mongoose";
+import mongoose, { FilterQuery, Model } from "mongoose";
 
 import {
   CreateGroupPayload,
@@ -38,15 +38,15 @@ export class GroupService {
       throw new BadRequestException("Group id is required");
     }
 
-    const updatedGroup: Group = await this.GroupModel.findOneAndUpdate(
-      { _id },
+    const updatedGroup: Group = await this.GroupModel.findByIdAndUpdate(
+      _id,
       {
-        $push: { collections: { $each: collections } },
+        $push: { collections: { $each: collections.map(({ _id }) => new mongoose.Types.ObjectId(_id)) } },
       },
       { new: true },
     );
 
-    if (!updatedGroup) {
+    if (!updatedGroup && !raw) {
       throw new BadRequestException("Group not found");
     }
 
@@ -88,11 +88,15 @@ export class GroupService {
     return response;
   }
 
+  async findGroup(query: FilterQuery<Group>, populate: (keyof Group)[] = []): Promise<Group> {
+    return await this.GroupModel.findOne(query).populate(populate);
+  }
+
   async findGroupById(id: string): Promise<Group> {
     return await this.GroupModel.findById(id);
   }
 
-  async findGroups(query: FilterQuery<Group>): Promise<Group[]> {
-    return await this.GroupModel.find(query);
+  async findGroups(query: FilterQuery<Group>, populate: (keyof Group)[] = []): Promise<Group[]> {
+    return await this.GroupModel.find(query).populate(populate);
   }
 }

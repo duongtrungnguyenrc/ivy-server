@@ -24,10 +24,13 @@ export class Product extends BaseSchema {
   @Prop({ type: Date })
   updatedAt: Date;
 
+  @Prop({ default: false })
+  isDeleted: boolean;
+
   @Prop({ type: mongoose.Types.ObjectId, ref: "Collection" })
   collection: Collection;
 
-  @Prop({ type: [{ type: mongoose.Types.ObjectId, ref: "Collection" }], ref: "Option" })
+  @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Option" })
   options: Option[];
 
   @Prop({ type: mongoose.Types.ObjectId, ref: "Cost" })

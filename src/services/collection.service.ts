@@ -8,7 +8,7 @@ import {
   GetCollectionResponse,
   GetCollectionsResponse,
 } from "@app/models";
-import { Collection } from "@app/schemas";
+import { Collection, Group } from "@app/schemas";
 import { GroupService } from "./group.service";
 
 @Injectable()
@@ -22,11 +22,21 @@ export class CollectionService {
   async createCollection(payload: CreateCollectionPayload): Promise<CreateCollectionResponse> {
     const { groupId, ...collection } = payload;
 
+    const group: Group = await this.groupService.findGroupById(groupId);
+
+    if (!group) {
+      throw new BadRequestException(`Nhóm sản phẩm không tồn tại`);
+    }
+
     const createdCollection: Collection = await this.collectionModel.create({
       ...collection,
     });
 
     this.groupService.updateGroup({ _id: groupId, collections: [createdCollection] }, true);
+
+    if (!group) {
+      throw new BadRequestException("Nhóm sản phẩm không tồn tại");
+    }
 
     const response: CreateCollectionResponse = {
       data: createdCollection,

@@ -51,4 +51,6 @@ export class CartService {
 
     return response;
   }
+
+  async deleteCartItem() {}
 }

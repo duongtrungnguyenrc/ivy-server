@@ -44,10 +44,6 @@ class UpdateCostPayload {
 
 export class UpdateProductPayload {
   @ApiProperty()
-  @IsMongoId()
-  id: string;
-
-  @ApiProperty()
   @IsNotEmpty()
   @IsOptional()
   @IsString()

@@ -36,6 +36,7 @@ export class AuthController {
   }
 
   @UseGuards(JWTAccessAuthGuard)
+  @ApiBearerAuth()
   @Post("token-auth")
   tokenAuth() {}
 

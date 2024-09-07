@@ -18,3 +18,4 @@ export * from "./sign-up.response";
 export * from "./update-group.response";
 export * from "./create-order.response";
 export * from "./update-order.response";
+export * from "./get-new-product-by-collection.response";
