@@ -9,7 +9,7 @@ import { Group } from "@app/schemas";
 export class CategoryService {
   constructor(private readonly groupService: GroupService) {}
 
-  async getCategories(): Promise<GetCategoriesResponse> {
+  async getCategories(): Promise<GetCategoriesResponse[]> {
     const categories = await Promise.all(
       Object.values(ProductCategory).map(async (category) => {
         const groups: Group[] = await this.groupService.findGroups({ category }, ["collections"]);
@@ -21,11 +21,6 @@ export class CategoryService {
       }),
     );
 
-    const response: GetCategoriesResponse = {
-      data: categories,
-      message: "",
-    };
-
-    return response;
+    return categories;
   }
 }

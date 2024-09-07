@@ -2,13 +2,7 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import mongoose, { FilterQuery, Model } from "mongoose";
 
-import {
-  CreateGroupPayload,
-  CreateGroupResponse,
-  GetGroupResponse,
-  GetGroupsResponse,
-  UpdateGroupResponse,
-} from "@app/models";
+import { CreateGroupPayload } from "@app/models";
 import { Group } from "@app/schemas";
 
 @Injectable()
@@ -18,20 +12,15 @@ export class GroupService {
     private readonly GroupModel: Model<Group>,
   ) {}
 
-  async createGroup(payload: CreateGroupPayload): Promise<CreateGroupResponse> {
+  async createGroup(payload: CreateGroupPayload): Promise<Group> {
     const createdGroup: Group = await this.GroupModel.create({
       ...payload,
     });
 
-    const response: CreateGroupResponse = {
-      data: createdGroup,
-      message: "Create group success",
-    };
-
-    return response;
+    return createdGroup;
   }
 
-  async updateGroup(updates: Partial<Group>, raw: boolean = false): Promise<Group | UpdateGroupResponse> {
+  async updateGroup(updates: Partial<Group>): Promise<Group> {
     const { _id, collections } = updates;
 
     if (!_id) {
@@ -46,46 +35,27 @@ export class GroupService {
       { new: true },
     );
 
-    if (!updatedGroup && !raw) {
+    if (!updatedGroup) {
       throw new BadRequestException("Group not found");
     }
 
-    if (raw) {
-      return updatedGroup;
-    }
-
-    const response: UpdateGroupResponse = {
-      data: updatedGroup,
-      message: "Update group success",
-    };
-
-    return response;
+    return updatedGroup;
   }
 
-  async getGroups(): Promise<GetGroupsResponse> {
-    const Groups: Group[] = await this.GroupModel.find().populate("collections");
+  async getGroups(): Promise<Group[]> {
+    const groups: Group[] = await this.GroupModel.find().populate("collections");
 
-    const response: GetGroupsResponse = {
-      data: Groups,
-      message: "Get groups success",
-    };
-
-    return response;
+    return groups;
   }
 
-  async getGroup(id: string): Promise<GetGroupResponse> {
+  async getGroup(id: string): Promise<Group> {
     const group: Group = await this.GroupModel.findById(id);
 
     if (!group) {
       throw new BadRequestException("Group not found");
     }
 
-    const response: GetGroupResponse = {
-      data: group,
-      message: "Get groups success",
-    };
-
-    return response;
+    return group;
   }
 
   async findGroup(query: FilterQuery<Group>, populate: (keyof Group)[] = []): Promise<Group> {

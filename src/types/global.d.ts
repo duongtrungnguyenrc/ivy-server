@@ -10,11 +10,6 @@ declare type TokenPair = {
   refreshToken: string;
 };
 
-declare type BaseResponse = {
-  data: any;
-  message: string;
-};
-
 declare type ResetPasswordTransactionPayload = {
   userId: string;
   otpCode: string;
@@ -24,5 +19,3 @@ declare type Pagination = {
   page: number;
   limit: number;
 };
-
-declare type GhnDeliveryPayload = {};

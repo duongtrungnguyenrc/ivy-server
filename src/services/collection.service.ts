@@ -2,12 +2,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { Model } from "mongoose";
 
-import {
-  CreateCollectionPayload,
-  CreateCollectionResponse,
-  GetCollectionResponse,
-  GetCollectionsResponse,
-} from "@app/models";
+import { CreateCollectionPayload } from "@app/models";
 import { Collection, Group } from "@app/schemas";
 import { GroupService } from "./group.service";
 
@@ -19,7 +14,7 @@ export class CollectionService {
     private readonly groupService: GroupService,
   ) {}
 
-  async createCollection(payload: CreateCollectionPayload): Promise<CreateCollectionResponse> {
+  async createCollection(payload: CreateCollectionPayload): Promise<Collection> {
     const { groupId, ...collection } = payload;
 
     const group: Group = await this.groupService.findGroupById(groupId);
@@ -32,44 +27,29 @@ export class CollectionService {
       ...collection,
     });
 
-    this.groupService.updateGroup({ _id: groupId, collections: [createdCollection] }, true);
+    this.groupService.updateGroup({ _id: groupId, collections: [createdCollection] });
 
     if (!group) {
       throw new BadRequestException("Nhóm sản phẩm không tồn tại");
     }
 
-    const response: CreateCollectionResponse = {
-      data: createdCollection,
-      message: "Create collection success",
-    };
-
-    return response;
+    return createdCollection;
   }
 
-  async getCollections(): Promise<GetCollectionsResponse> {
+  async getCollections(): Promise<Collection[]> {
     const collections: Collection[] = await this.collectionModel.find();
 
-    const response: GetCollectionsResponse = {
-      data: collections,
-      message: "Get collections success",
-    };
-
-    return response;
+    return collections;
   }
 
-  async getCollection(id: string): Promise<GetCollectionResponse> {
+  async getCollection(id: string): Promise<Collection> {
     const collection: Collection = await this.collectionModel.findById(id);
 
     if (!collection) {
       throw new BadRequestException("Collection not found");
     }
 
-    const response: GetCollectionResponse = {
-      data: collection,
-      message: "Get collections success",
-    };
-
-    return response;
+    return collection;
   }
 
   async findCollectionById(id: string): Promise<Collection> {

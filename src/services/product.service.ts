@@ -3,19 +3,11 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, UpdateQuery } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
-import {
-  CreateProductPayload,
-  CreateProductResponse,
-  DeleteProductResponse,
-  GetProductsByCollectionResponse,
-  UpdateProductPayload,
-  UpdateProductResponse,
-} from "@app/models";
+import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
 import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
 import { joinCacheKey } from "@app/utils";
-import { GroupService } from "./group.service";
 
 @Injectable()
 export class ProductService {
@@ -26,7 +18,6 @@ export class ProductService {
     private readonly optionModel: Model<Option>,
     @InjectModel(Cost.name)
     private readonly costModel: Model<Cost>,
-    private readonly groupService: GroupService,
     private readonly collectionService: CollectionService,
     private readonly cacheManager: Cache,
   ) {}
@@ -63,20 +54,17 @@ export class ProductService {
       .populate(["currentCost", "options"])
       .exec();
 
-    const response: GetProductsByCollectionResponse = {
-      data: {
-        products: products,
-        page: page,
-        limit: limit,
-        totalPages: totalPages,
-      },
-      message: `Truy vấn sản phẩm mới theo danh mục ${collection.name} thành công`,
+    const responseData: GetProductsByCollectionResponse = {
+      products: products,
+      page: page,
+      limit: limit,
+      totalPages: totalPages,
     };
 
-    return response;
+    return responseData;
   }
 
-  async createProduct(payload: CreateProductPayload): Promise<CreateProductResponse> {
+  async createProduct(payload: CreateProductPayload): Promise<Product> {
     const { options, cost, collectionId, ...product } = payload;
 
     const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
@@ -107,15 +95,10 @@ export class ProductService {
 
     const createdProduct: Product = await this.productModel.create(createProducePayload);
 
-    const response: CreateProductResponse = {
-      data: createdProduct,
-      message: "Create product success",
-    };
-
-    return response;
+    return createdProduct;
   }
 
-  async updateProduct(id: string, payload: UpdateProductPayload): Promise<UpdateProductResponse> {
+  async updateProduct(id: string, payload: UpdateProductPayload): Promise<Product> {
     const { options, cost, collectionId, ...product } = payload;
 
     const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
@@ -160,15 +143,10 @@ export class ProductService {
 
     this.cacheManager.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
 
-    const response: UpdateProductResponse = {
-      data: updatedProduct,
-      message: "Update product success",
-    };
-
-    return response;
+    return updatedProduct;
   }
 
-  async deleteProduct(id: string): Promise<DeleteProductResponse> {
+  async deleteProduct(id: string): Promise<void> {
     const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, {
       isDeleted: true,
     });
@@ -176,13 +154,6 @@ export class ProductService {
     if (!updatedProduct) {
       throw new BadRequestException("Sản phẩm không tồn tại");
     }
-
-    const response: DeleteProductResponse = {
-      data: true,
-      message: "Xoá sản phẩm thành công",
-    };
-
-    return response;
   }
 
   async updateProductOptionById(id: string, update: UpdateQuery<Option>, raw: boolean = false): Promise<Option> {

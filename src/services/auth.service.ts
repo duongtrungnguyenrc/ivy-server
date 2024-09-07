@@ -5,22 +5,11 @@ import { Cache } from "@nestjs/cache-manager";
 import { Request } from "express";
 
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
+import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
 import { getTokenFromRequest, joinCacheKey } from "@app/utils";
 import { JwtAccessService, JwtRefreshService } from ".";
 import { UserService } from "./user.service";
 import { User } from "@app/schemas";
-import {
-  SignInPayload,
-  SignInResponse,
-  SignOutResponse,
-  SignUpPayload,
-  SignUpResponse,
-  RefreshTokenResponse,
-  ForgotPasswordPayload,
-  ForgotPasswordResponse,
-  ResetPasswordPayload,
-  ResetPasswordResponse,
-} from "@app/models";
 
 @Injectable()
 export class AuthService {
@@ -46,37 +35,30 @@ export class AuthService {
     return isMatch;
   }
 
-  async signIn(payload: SignInPayload): Promise<SignInResponse> {
+  async signIn(payload: SignInPayload): Promise<TokenPair> {
     const { email } = payload;
 
     const user: User = await this.userService.findUserByEmail(email, ["password"]);
 
     const cachedTokenPair: TokenPair = await this.getCachedTokenPair(user._id);
 
-    let responseData: TokenPair = cachedTokenPair;
-
-    if (!responseData) {
-      const tokenPayload: JwtPayload = {
-        userId: user._id,
-        role: user.role,
-      };
-
-      const tokenPair: TokenPair = this.generateTokenPair(tokenPayload);
-
-      this.cacheTokenPair(user._id, tokenPair);
-
-      responseData = tokenPair;
+    if (cachedTokenPair) {
+      return cachedTokenPair;
     }
 
-    const response: SignInResponse = {
-      data: responseData,
-      message: "Sign in success",
+    const tokenPayload: JwtPayload = {
+      userId: user._id,
+      role: user.role,
     };
 
-    return response;
+    const tokenPair: TokenPair = this.generateTokenPair(tokenPayload);
+
+    this.cacheTokenPair(user._id, tokenPair);
+
+    return tokenPair;
   }
 
-  async signUp(payload: SignUpPayload): Promise<SignUpResponse> {
+  async signUp(payload: SignUpPayload): Promise<void> {
     const createdUser: User = await this.userService.createUser(payload);
 
     delete createdUser.password;
@@ -87,16 +69,9 @@ export class AuthService {
       template: "register",
       context: { user: createdUser.name },
     });
-
-    const response: SignUpResponse = {
-      data: true,
-      message: "Create user success!",
-    };
-
-    return response;
   }
 
-  async signOut(request: Request): Promise<SignOutResponse> {
+  async signOut(request: Request): Promise<void> {
     const userId: string = this.userService.extractUserIdFromAuth(request);
 
     if (!userId) {
@@ -104,16 +79,9 @@ export class AuthService {
     }
 
     this.revokeTokenPair(userId);
-
-    const response: SignOutResponse = {
-      data: true,
-      message: "Sign out success",
-    };
-
-    return response;
   }
 
-  async refreshToken(request: Request): Promise<RefreshTokenResponse> {
+  async refreshToken(request: Request): Promise<TokenPair> {
     const refreshToken: string = getTokenFromRequest(request);
 
     const tokenPayload: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
@@ -124,15 +92,10 @@ export class AuthService {
 
     this.cacheTokenPair(tokenPayload.userId, newTokenPair);
 
-    const response: RefreshTokenResponse = {
-      data: newTokenPair,
-      message: "Refresh token success",
-    };
-
-    return response;
+    return newTokenPair;
   }
 
-  async forgotPassword(payload: ForgotPasswordPayload): Promise<ForgotPasswordResponse> {
+  async forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
     const { _id, email, name }: User = await this.userService.findOneUser({
       email: payload.email,
     });
@@ -149,16 +112,9 @@ export class AuthService {
       template: "forgot-password",
       context: { user: name, otp: otpCode },
     });
-
-    const response: ForgotPasswordResponse = {
-      data: true,
-      message: "Create forgot password transaction success",
-    };
-
-    return response;
   }
 
-  async resetPassword(payload: ResetPasswordPayload): Promise<ResetPasswordResponse> {
+  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
     const { newPassword, userId, otpCode } = payload;
 
     const cachedTransaction: ResetPasswordTransactionPayload = await this.getCachedOtp(userId);
@@ -175,13 +131,6 @@ export class AuthService {
     if (!updatedUser) {
       throw new BadRequestException("Invalid user");
     }
-
-    const response: ResetPasswordResponse = {
-      data: true,
-      message: "Reset password success",
-    };
-
-    return response;
   }
 
   /* Helper functions */

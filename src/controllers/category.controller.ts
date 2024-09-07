@@ -10,9 +10,9 @@ export class CategoryController {
 
   @Get("/")
   @ApiResponse({
-    type: GetCategoriesResponse,
+    type: [GetCategoriesResponse],
   })
-  getCategories(): Promise<GetCategoriesResponse> {
+  getCategories(): Promise<GetCategoriesResponse[]> {
     return this.categoryService.getCategories();
   }
 }

@@ -1,17 +1,11 @@
 import { ApiBearerAuth, ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 
-import {
-  CreateProductPayload,
-  CreateProductResponse,
-  DeleteProductResponse,
-  GetProductsByCollectionResponse,
-  UpdateProductPayload,
-  UpdateProductResponse,
-} from "@app/models";
+import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
 import { JWTAccessAuthGuard } from "@app/guards";
 import { ProductService } from "@app/services";
 import { HasRole } from "@app/decorators";
+import { Product } from "@app/schemas";
 
 @Controller("product")
 @ApiTags("product")
@@ -39,8 +33,8 @@ export class ProductController {
   @HasRole("ADMIN")
   @ApiBearerAuth()
   @ApiBody({ type: CreateProductPayload })
-  @ApiResponse({ type: CreateProductResponse })
-  createProduct(@Body() payload: CreateProductPayload): Promise<CreateProductResponse> {
+  @ApiResponse({ type: Product })
+  createProduct(@Body() payload: CreateProductPayload): Promise<Product> {
     return this.productService.createProduct(payload);
   }
 
@@ -50,8 +44,8 @@ export class ProductController {
   @ApiBearerAuth()
   @ApiParam({ type: String, name: "id" })
   @ApiBody({ type: UpdateProductPayload })
-  @ApiResponse({ type: UpdateProductResponse })
-  updateProduct(@Param("id") id: string, @Body() payload: UpdateProductPayload): Promise<UpdateProductResponse> {
+  @ApiResponse({ type: Product })
+  updateProduct(@Param("id") id: string, @Body() payload: UpdateProductPayload): Promise<Product> {
     return this.productService.updateProduct(id, payload);
   }
 
@@ -60,8 +54,7 @@ export class ProductController {
   @HasRole("ADMIN")
   @ApiBearerAuth()
   @ApiParam({ type: String, name: "id" })
-  @ApiResponse({ type: DeleteProductResponse })
-  deleteProduct(@Param("id") id: string): Promise<DeleteProductResponse> {
+  deleteProduct(@Param("id") id: string): Promise<void> {
     return this.productService.deleteProduct(id);
   }
 }

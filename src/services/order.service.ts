@@ -7,12 +7,12 @@ import { format } from "date-fns";
 import * as querystring from "qs";
 import * as crypto from "crypto";
 
+import { OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
 import { Option, Order, OrderItem, Product, User } from "@app/schemas";
-import { CreateOrderPayload, CreateOrderResponse, UpdateOrderPayload, UpdateOrderResponse } from "@app/models";
+import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
+import { VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
 import { ProductService } from "./product.service";
 import { UserService } from "./user.service";
-import { OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
-import { VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
 import { CartService } from "./cart.service";
 
 @Injectable()
@@ -28,7 +28,7 @@ export class OrderService {
     private readonly userServide: UserService,
   ) {}
 
-  async createOrder(payload: CreateOrderPayload, request: Request, res: Response): Promise<CreateOrderResponse> {
+  async createOrder(payload: CreateOrderPayload, request: Request, res: Response): Promise<Order> {
     const { items, ...order } = payload;
 
     const createdItems: OrderItem[] = await Promise.all(
@@ -94,15 +94,11 @@ export class OrderService {
       return;
     }
 
-    const response: CreateOrderResponse = {
-      data: createdOrder,
-      message: "Tạo đơn hàng thành công",
-    };
-
-    res.json(response);
+    res.json(createdOrder);
+    return createdOrder;
   }
 
-  async paymentCallback(request: Request, response: Response) {
+  async paymentCallback(request: Request, response: Response): Promise<void> {
     const { vnp_TransactionStatus, vnp_TxnRef: orderId } = request.query;
     const clientBaseUrl: string = this.configService.get<string>("CLIENT_BASE_URL");
     const returnRoute = `${clientBaseUrl}/order/result`;
@@ -122,19 +118,14 @@ export class OrderService {
     response.redirect(redirectUrl);
   }
 
-  async updateOrder(id: string, updates: UpdateOrderPayload): Promise<UpdateOrderResponse> {
+  async updateOrder(id: string, updates: UpdateOrderPayload): Promise<Order> {
     const order: Order = await this.orderModel.findByIdAndUpdate(id, updates);
 
     if (!order) {
       throw new BadRequestException("Đơn hàng không tồn tại");
     }
 
-    const response: UpdateOrderResponse = {
-      data: order,
-      message: "Cập nhật đơn hàng thành công",
-    };
-
-    return response;
+    return order;
   }
 
   private async createPaymentUrl(

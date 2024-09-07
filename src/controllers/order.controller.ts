@@ -2,8 +2,9 @@ import { Body, Controller, Get, Param, Post, Put, Req, Res } from "@nestjs/commo
 import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 
-import { CreateOrderResponse, CreateOrderPayload, UpdateOrderPayload, UpdateOrderResponse } from "@app/models";
+import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
 import { OrderService } from "@app/services";
+import { Order } from "@app/schemas";
 
 @Controller("order")
 @ApiTags("order")
@@ -12,19 +13,14 @@ export class OrderController {
 
   @Post("/")
   @ApiBody({ type: CreateOrderPayload })
-  @ApiResponse({ type: CreateOrderResponse })
-  createOrder(
-    @Body() payload: CreateOrderPayload,
-    @Req() request: Request,
-    @Res() response: Response,
-  ): Promise<CreateOrderResponse> {
+  @ApiResponse({ type: Order })
+  createOrder(@Body() payload: CreateOrderPayload, @Req() request: Request, @Res() response: Response): Promise<Order> {
     return this.orderService.createOrder(payload, request, response);
   }
 
   @Put("/:id")
   @ApiBody({ type: UpdateOrderPayload })
-  @ApiResponse({ type: UpdateOrderResponse })
-  updateOrder(@Body() payload: UpdateOrderPayload, @Param("id") id: string) {
+  updateOrder(@Body() payload: UpdateOrderPayload, @Param("id") id: string): Promise<Order> {
     return this.orderService.updateOrder(id, payload);
   }
 
@@ -32,7 +28,7 @@ export class OrderController {
   deliveryCallback() {}
 
   @Get("/payment-callback")
-  paymentCallback(@Req() request: Request, @Res() response: Response) {
+  paymentCallback(@Req() request: Request, @Res() response: Response): Promise<void> {
     return this.orderService.paymentCallback(request, response);
   }
 }

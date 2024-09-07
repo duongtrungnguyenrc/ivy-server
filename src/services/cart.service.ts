@@ -1,4 +1,4 @@
-import { AddCartItemPayload, AddCartItemResponse } from "@app/models";
+import { AddCartItemPayload } from "@app/models";
 import { Cart, CartItem, User } from "@app/schemas";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
@@ -18,7 +18,7 @@ export class CartService {
     private readonly productService: ProductService,
   ) {}
 
-  async addCartItem(payload: AddCartItemPayload, request: Request): Promise<AddCartItemResponse> {
+  async addCartItem(payload: AddCartItemPayload, request: Request): Promise<Cart> {
     const { productId, optionId, quantity } = payload;
 
     const [product, option] = await Promise.all([
@@ -44,12 +44,7 @@ export class CartService {
       { new: true, upsert: true },
     );
 
-    const response: AddCartItemResponse = {
-      data: cart,
-      message: "Add cart item success",
-    };
-
-    return response;
+    return cart;
   }
 
   async deleteCartItem() {}
