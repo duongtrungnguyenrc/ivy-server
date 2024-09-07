@@ -1,26 +1,40 @@
 import { Injectable } from "@nestjs/common";
 
-import { GroupService } from "./group.service";
-import { GetCategoriesResponse } from "@app/models";
-import { ProductCategory } from "@app/enums";
-import { Group } from "@app/schemas";
+import { Category, CollectionGroup } from "@app/schemas";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, Types } from "mongoose";
+import { CreateCategoryPayload } from "@app/models";
 
 @Injectable()
 export class CategoryService {
-  constructor(private readonly groupService: GroupService) {}
+  constructor(
+    @InjectModel(Category.name)
+    private readonly categoryModel: Model<Category>,
+  ) {}
 
-  async getCategories(): Promise<GetCategoriesResponse[]> {
-    const categories = await Promise.all(
-      Object.values(ProductCategory).map(async (category) => {
-        const groups: Group[] = await this.groupService.findGroups({ category }, ["collections"]);
+  async createCategory(payload: CreateCategoryPayload): Promise<Category> {
+    return await this.categoryModel.create(payload);
+  }
 
-        return {
-          name: category,
-          groups: groups,
-        };
-      }),
-    );
+  async getCategories(): Promise<Category[]> {
+    const categories: Category[] = await this.categoryModel.find().populate({
+      path: "collectionGroups",
+      populate: {
+        path: "collections",
+        model: "Collection",
+      },
+    });
 
     return categories;
+  }
+
+  async addGroup(id: string, group: CollectionGroup): Promise<Category> {
+    const updatedCategory: Category = await this.categoryModel.findByIdAndUpdate(id, {
+      $push: {
+        collectionGroups: new Types.ObjectId(group._id),
+      },
+    });
+
+    return updatedCategory;
   }
 }

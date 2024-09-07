@@ -9,3 +9,4 @@ export * from "./update-product.payload";
 export * from "./add-cart-item.payload";
 export * from "./create-order.payload";
 export * from "./update-order.payload";
+export * from "./create-category.payload";

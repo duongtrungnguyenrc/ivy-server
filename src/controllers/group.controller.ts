@@ -1,34 +1,34 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateGroupPayload } from "@app/models";
+import { CreateCollectionGroupPayload } from "@app/models";
 import { JWTAccessAuthGuard } from "@app/guards";
-import { GroupService } from "@app/services";
+import { CollectionGroupService } from "@app/services";
 import { HasRole } from "@app/decorators";
-import { Group } from "@app/schemas";
+import { CollectionGroup } from "@app/schemas";
 
 @Controller("group")
 @ApiTags("group")
-export class GroupController {
-  constructor(private readonly groupService: GroupService) {}
+export class CollectionGroupController {
+  constructor(private readonly groupService: CollectionGroupService) {}
 
   @Post("/")
   @UseGuards(JWTAccessAuthGuard)
   @HasRole("ADMIN")
   @ApiBearerAuth()
-  @ApiBody({ type: CreateGroupPayload })
-  @ApiResponse({ type: Group })
-  createGroup(@Body() payload: CreateGroupPayload): Promise<Group> {
-    return this.groupService.createGroup(payload);
+  @ApiBody({ type: CreateCollectionGroupPayload })
+  @ApiResponse({ type: CollectionGroup })
+  createCollectionGroup(@Body() payload: CreateCollectionGroupPayload): Promise<CollectionGroup> {
+    return this.groupService.createCollectionGroup(payload);
   }
 
   @Get("/")
-  getGroups(): Promise<Group[]> {
-    return this.groupService.getGroups();
+  getCollectionGroups(): Promise<CollectionGroup[]> {
+    return this.groupService.getCollectionGroups();
   }
 
   @Get("/:id")
-  getGroup(@Param("id") id: string): Promise<Group> {
-    return this.groupService.getGroup(id);
+  getCollectionGroup(@Param("id") id: string): Promise<CollectionGroup> {
+    return this.groupService.getCollectionGroup(id);
   }
 }

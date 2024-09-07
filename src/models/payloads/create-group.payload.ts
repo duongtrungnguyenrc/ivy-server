@@ -1,12 +1,10 @@
-import { IsBoolean, IsEnum, IsOptional } from "class-validator";
+import { IsBoolean, IsMongoId, IsOptional } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
-import { ProductCategory } from "@app/enums";
-
-export class CreateGroupPayload {
+export class CreateCollectionGroupPayload {
   @ApiProperty({ type: String })
-  @IsEnum(ProductCategory)
-  category: ProductCategory;
+  @IsMongoId()
+  categoryId: string;
 
   @IsBoolean()
   @IsOptional()

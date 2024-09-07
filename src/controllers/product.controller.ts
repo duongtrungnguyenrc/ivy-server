@@ -19,13 +19,13 @@ export class ProductController {
   @Get("/:id")
   getProductDetail() {}
 
-  @Get("/collection/:id")
+  @Get("/")
   getProductsByCollection(
-    @Param("id") id: string,
+    @Query("collection") collectionId: string,
     @Query("page") page: number = 1,
     @Query("limit") limit: number = 20,
   ): Promise<GetProductsByCollectionResponse> {
-    return this.productService.getProductsByCollection(id, page, limit);
+    return this.productService.getProductsByCollection(collectionId, page, limit);
   }
 
   @Post("/")

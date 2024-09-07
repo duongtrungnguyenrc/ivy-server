@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, Post, Req, UseGuards } from "@nestjs/common
 import { ApiBearerAuth, ApiBody, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 
-import { JWTAccessAuthGuard, LocalAuthGuard } from "@app/guards";
+import { JWTAccessAuthGuard, JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
 import { AuthService } from "@app/services";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
 
@@ -42,7 +42,7 @@ export class AuthController {
   }
 
   @Post("refresh-token")
-  @UseGuards(JWTAccessAuthGuard)
+  @UseGuards(JWTRefreshAuthGuard)
   @ApiBearerAuth()
   refreshToken(@Req() request: Request): Promise<TokenPair> {
     return this.authService.refreshToken(request);

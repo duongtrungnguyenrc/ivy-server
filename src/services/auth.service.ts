@@ -10,6 +10,7 @@ import { getTokenFromRequest, joinCacheKey } from "@app/utils";
 import { JwtAccessService, JwtRefreshService } from ".";
 import { UserService } from "./user.service";
 import { User } from "@app/schemas";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class AuthService {
@@ -75,7 +76,7 @@ export class AuthService {
     const userId: string = this.userService.extractUserIdFromAuth(request);
 
     if (!userId) {
-      throw new UnauthorizedException("Token invalid");
+      throw new UnauthorizedException(ErrorMessage.INVALID_AUTH_TOKEN);
     }
 
     this.revokeTokenPair(userId);
@@ -84,7 +85,7 @@ export class AuthService {
   async refreshToken(request: Request): Promise<TokenPair> {
     const refreshToken: string = getTokenFromRequest(request);
 
-    const tokenPayload: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
+    const { exp: _, iat: __, ...tokenPayload }: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
 
     this.revokeTokenPair(tokenPayload.userId);
 
@@ -101,7 +102,7 @@ export class AuthService {
     });
 
     if (!_id) {
-      throw new BadRequestException("User not found");
+      throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
     }
 
     const otpCode: string = await this.generateOTP(_id);
@@ -120,7 +121,7 @@ export class AuthService {
     const cachedTransaction: ResetPasswordTransactionPayload = await this.getCachedOtp(userId);
 
     if (otpCode != cachedTransaction.otpCode) {
-      throw new BadRequestException("Invalid OTP");
+      throw new BadRequestException("Mã OTP không hợp lệ");
     }
 
     const salf = await genSalt(10);
@@ -161,10 +162,10 @@ export class AuthService {
   }
 
   private cacheTokenPair(userId: string, tokenPair: TokenPair): void {
-    const decodedAccessToken: any = this.jwtAccessService.decodeToken<any>(tokenPair.accessToken);
+    const decodedAccessToken = this.jwtAccessService.decodeToken(tokenPair.accessToken);
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const tokenValidTime = (decodedAccessToken.exp - currentTime) * 1000;
+    const tokenValidTime = (decodedAccessToken["exp"] - currentTime) * 1000;
 
     this.cacheManager.set(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId), tokenPair, tokenValidTime);
   }
@@ -174,9 +175,9 @@ export class AuthService {
   }
 
   async revokeTokenPair(userId: string): Promise<void> {
-    await this.cacheManager.del(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
-
     const tokenPair: TokenPair = await this.getCachedTokenPair(userId);
+
+    await this.cacheManager.del(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
 
     await Promise.all([
       this.jwtAccessService.revokeToken(tokenPair.accessToken),

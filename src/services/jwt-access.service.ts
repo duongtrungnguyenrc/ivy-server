@@ -1,6 +1,6 @@
+import { Cache } from "@nestjs/cache-manager";
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
-import { Cache } from "@nestjs/cache-manager";
 
 import { REVOKE_ACCESS_TOKEN_CACHE_PREFIX } from "@app/constants";
 import { joinCacheKey } from "@app/utils";
@@ -12,19 +12,19 @@ export class JwtAccessService {
     private readonly cacheManager: Cache,
   ) {}
 
-  decodeToken<T>(token: string): T {
+  decodeToken(token: string): JwtPayload {
     return this.jwtService.decode(token);
   }
 
-  generateToken(payload: any): string {
+  generateToken(payload: JwtPayload): string {
     return this.jwtService.sign(payload);
   }
 
   async revokeToken(token: string): Promise<void> {
-    const decodeRequestken = await this.jwtService.decode(token);
+    const decodedToken = await this.jwtService.decode(token);
 
     const currentTime = Math.floor(Date.now() / 1000);
-    const tokenValidTime = (decodeRequestken["exp"] - currentTime) * 1000;
+    const tokenValidTime = (decodedToken["exp"] - currentTime) * 1000;
 
     this.cacheManager.set(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
   }

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import mongoose from "mongoose";
 
-import { Collection, Cost, Option } from ".";
+import { Cost, Option } from ".";
 import { BaseSchema } from "./base.schema";
 
 @Schema({ timestamps: true })
@@ -26,9 +26,6 @@ export class Product extends BaseSchema {
 
   @Prop({ default: false })
   isDeleted: boolean;
-
-  @Prop({ type: mongoose.Types.ObjectId, ref: "Collection" })
-  collection: Collection;
 
   @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Option" })
   options: Option[];

@@ -29,7 +29,7 @@ export class ProductService {
   getProductDetail() {}
 
   async getProductsByCollection(id: string, page: number, limit: number): Promise<GetProductsByCollectionResponse> {
-    const collection: Collection = await this.collectionService.findCollectionById(id);
+    const collection: Collection = await this.collectionService.findCollectionById(id, [], true);
 
     if (!collection) {
       throw new BadRequestException(`Danh mục không tồn tại`);
@@ -37,17 +37,11 @@ export class ProductService {
 
     const skip = (page - 1) * limit;
 
-    const totalProducts = await this.productModel.countDocuments({
-      collection: collection._id,
-      isDeleted: false,
-    });
-
-    const totalPages = Math.ceil(totalProducts / limit);
+    const totalPages = Math.ceil(collection.products.length / limit);
 
     const products = await this.productModel
       .find({
-        collection: collection._id,
-        isDeleted: false,
+        _id: { $in: collection.products },
       })
       .skip(skip)
       .limit(limit)
@@ -67,33 +61,24 @@ export class ProductService {
   async createProduct(payload: CreateProductPayload): Promise<Product> {
     const { options, cost, collectionId, ...product } = payload;
 
-    const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
-
     const createCostQuery: Promise<Cost> = this.costModel.create(cost);
 
     const createOptionsQuery: Promise<Option[]> = this.optionModel.create(options);
 
-    const [collection, createdCost, createdOptions] = await Promise.all([
-      collectionQuery,
-      createCostQuery,
-      createOptionsQuery,
-    ]).catch((error) => {
+    const [createdCost, createdOptions] = await Promise.all([createCostQuery, createOptionsQuery]).catch((error) => {
       throw new InternalServerErrorException(error.message);
     });
 
-    if (!collection) {
-      throw new BadRequestException("Invalid collection");
-    }
-
     const createProducePayload: UpdateQuery<Product> = {
       ...product,
-      collection: collection,
       options: createdOptions,
       currentCost: createdCost,
       costs: [createdCost],
     };
 
     const createdProduct: Product = await this.productModel.create(createProducePayload);
+
+    this.collectionService.addProduct(collectionId, createdProduct);
 
     return createdProduct;
   }

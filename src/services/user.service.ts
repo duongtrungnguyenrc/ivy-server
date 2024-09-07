@@ -1,14 +1,14 @@
-import { InjectModel } from "@nestjs/mongoose";
-import { Cache } from "@nestjs/cache-manager";
 import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Model, FilterQuery } from "mongoose";
+import { Cache } from "@nestjs/cache-manager";
 import { genSalt, hash } from "bcrypt";
 import { decode } from "jsonwebtoken";
 import { Request } from "express";
-import { Model, FilterQuery } from "mongoose";
 
 import { getTokenFromRequest, joinCacheKey } from "@app/utils";
-import { User } from "@app/schemas";
 import { USER_CACHE_PREFIX } from "@app/constants";
+import { User } from "@app/schemas";
 
 @Injectable()
 export class UserService {
@@ -21,17 +21,9 @@ export class UserService {
   async findUserFromAuth(request: Request, raw: boolean = false): Promise<User> {
     const userId = this.extractUserIdFromAuth(request);
 
-    const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, userId);
-
-    const cachedUser: User = await this.cacheManager.get(userCacheKey);
-
-    if (cachedUser) return cachedUser;
-
-    const user: User = await this.userModel.findById(userId);
+    const user: User = await this.findOneUser({ _id: userId });
 
     if (!userId && !raw) throw new UnauthorizedException("User not found");
-
-    this.cacheManager.set(userCacheKey, user);
 
     return user;
   }
@@ -46,12 +38,27 @@ export class UserService {
     return user;
   }
 
-  async findOneUser(query: FilterQuery<User>, includes: (keyof User)[] = []): Promise<User> {
+  async findOneUser(
+    query: FilterQuery<User>,
+    includes: (keyof User)[] = [],
+    populate: (keyof User)[] = [],
+    force: boolean = false,
+  ): Promise<User> {
+    const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, query._id);
+
+    if (!force) {
+      const cachedUser: User = await this.cacheManager.get(userCacheKey);
+
+      if (cachedUser) return cachedUser;
+    }
+
     const includeQueries = includes.map((key) => {
       return `+${key}`;
     });
 
-    const user: User = await this.userModel.findOne({ ...query }, includeQueries);
+    const user: User = await this.userModel.findOne({ ...query }, includeQueries).populate(populate);
+
+    this.cacheManager.set(userCacheKey, user);
 
     return user;
   }

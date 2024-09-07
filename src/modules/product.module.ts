@@ -5,11 +5,11 @@ import { Cost, CostSchema, Option, OptionSchema, Product, ProductSchema } from "
 import { CollectionModule } from "./collection.module";
 import { ProductController } from "@app/controllers";
 import { ProductService } from "@app/services";
-import { GroupModule } from "./group.module";
+import { CollectionGroupModule } from "./collection-group.module";
 
 @Module({
   imports: [
-    GroupModule,
+    CollectionGroupModule,
     CollectionModule,
     MongooseModule.forFeature([
       {

@@ -5,6 +5,6 @@ export * from "./auth.service";
 export * from "./category.service";
 export * from "./product.service";
 export * from "./collection.service";
-export * from "./group.service";
+export * from "./collection-group.service";
 export * from "./order.service";
 export * from "./cart.service";

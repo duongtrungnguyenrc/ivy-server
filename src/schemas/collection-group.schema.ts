@@ -2,19 +2,15 @@ import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
 import mongoose from "mongoose";
 
 import { Collection } from "./collection.schema";
-import { ProductCategory } from "@app/enums";
 import { BaseSchema } from "./base.schema";
 
 @Schema({ timestamps: true })
-export class Group extends BaseSchema {
-  @Prop({ type: String, enum: ProductCategory })
-  category: ProductCategory;
-
-  @Prop({ unique: true })
+export class CollectionGroup extends BaseSchema {
+  @Prop()
   name: string;
 
   @Prop({ default: false })
-  special: boolean;
+  isSpecial: boolean;
 
   @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Collection", default: [] })
   collections: Collection[];
@@ -26,4 +22,4 @@ export class Group extends BaseSchema {
   updatedAt: Date;
 }
 
-export const GroupSchema = SchemaFactory.createForClass(Group);
+export const CollectionGroupSchema = SchemaFactory.createForClass(CollectionGroup);

@@ -4,11 +4,11 @@ import { Module } from "@nestjs/common";
 import { Collection, CollectionSchema } from "@app/schemas";
 import { CollectionController } from "@app/controllers";
 import { CollectionService } from "@app/services";
-import { GroupModule } from "./group.module";
+import { CollectionGroupModule } from "./collection-group.module";
 
 @Module({
   imports: [
-    GroupModule,
+    CollectionGroupModule,
     MongooseModule.forFeature([
       {
         name: Collection.name,

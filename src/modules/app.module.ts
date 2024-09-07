@@ -7,7 +7,7 @@ import { Module } from "@nestjs/common";
 import { CollectionModule } from "./collection.module";
 import { TestController } from "@app/controllers";
 import { ProductModule } from "./product.module";
-import { GroupModule } from "./group.module";
+import { CollectionGroupModule } from "./collection-group.module";
 import { AuthModule } from "./auth.module";
 import { UserModule } from "./user.module";
 import { CategoryModule } from "./category.module";
@@ -19,7 +19,7 @@ import { CartModule } from "./cart.module";
     UserModule,
     AuthModule,
     CategoryModule,
-    GroupModule,
+    CollectionGroupModule,
     CollectionModule,
     ProductModule,
     CartModule,
