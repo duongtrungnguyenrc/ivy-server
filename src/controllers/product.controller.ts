@@ -17,7 +17,10 @@ export class ProductController {
   getBestSellerProducts() {}
 
   @Get("/:id")
-  getProductDetail() {}
+  @ApiResponse({ type: Product })
+  getProduct(@Param("id") id: string): Promise<Product> {
+    return this.productService.getProduct(id);
+  }
 
   @Get("/")
   getProductsByCollection(

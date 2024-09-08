@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, UpdateQuery } from "mongoose";
+import { Model, Types, UpdateQuery } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
 import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
@@ -26,7 +26,13 @@ export class ProductService {
 
   getBestSellerProducts() {}
 
-  getProductDetail() {}
+  async getProduct(id: string): Promise<Product> {
+    const product: Product = await this.findProductById(id, ["currentCost", "options"]);
+
+    if (!product) throw new BadRequestException("Sản phẩm không tồn tại");
+
+    return product;
+  }
 
   async getProductsByCollection(id: string, page: number, limit: number): Promise<GetProductsByCollectionResponse> {
     const collection: Collection = await this.collectionService.findCollectionById(id, [], true);
@@ -71,7 +77,7 @@ export class ProductService {
 
     const createProducePayload: UpdateQuery<Product> = {
       ...product,
-      options: createdOptions,
+      options: createdOptions.map((option) => new Types.ObjectId(option._id)),
       currentCost: createdCost,
       costs: [createdCost],
     };
