@@ -26,8 +26,6 @@ export class CategoryController {
   @ApiBody({ type: CreateCategoryPayload })
   @ApiResponse({ type: Category })
   createCategory(@Body() payload: CreateCategoryPayload): Promise<Category> {
-    console.log("upload");
-
     return this.categoryService.createCategory(payload);
   }
 }

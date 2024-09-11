@@ -175,13 +175,13 @@ export class AuthService {
   }
 
   async revokeTokenPair(userId: string): Promise<void> {
-    const tokenPair: TokenPair = await this.getCachedTokenPair(userId);
+    const cachedTokenPair: TokenPair = await this.getCachedTokenPair(userId);
 
-    await this.cacheManager.del(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
+    if (!cachedTokenPair) return;
 
     await Promise.all([
-      this.jwtAccessService.revokeToken(tokenPair.accessToken),
-      this.jwtRefreshService.revokeToken(tokenPair.refreshToken),
+      this.jwtAccessService.revokeToken(cachedTokenPair.accessToken),
+      this.jwtRefreshService.revokeToken(cachedTokenPair.refreshToken),
     ]);
   }
 }

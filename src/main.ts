@@ -33,6 +33,6 @@ async function bootstrap() {
     jsonDocumentUrl: "swagger/json",
   });
 
-  await app.listen(3000);
+  await app.listen(8080);
 }
 bootstrap();

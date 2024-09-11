@@ -3,8 +3,8 @@ import { ApiBearerAuth, ApiBody, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 
 import { JWTAccessAuthGuard, JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
-import { AuthService } from "@app/services";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
+import { AuthService } from "@app/services";
 
 @Controller("auth")
 @ApiTags("auth")
@@ -20,11 +20,6 @@ export class AuthController {
   signIn(@Body() payload: SignInPayload): Promise<TokenPair> {
     return this.authService.signIn(payload);
   }
-
-  @UseGuards(JWTAccessAuthGuard)
-  @ApiBearerAuth()
-  @Post("token-auth")
-  tokenAuth() {}
 
   @Post("sign-up")
   @ApiBody({

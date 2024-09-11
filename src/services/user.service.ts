@@ -18,6 +18,10 @@ export class UserService {
     private readonly cacheManager: Cache,
   ) {}
 
+  async getUser(id: string): Promise<User> {
+    return await this.findOneUser({ _id: id });
+  }
+
   async findUserFromAuth(request: Request, raw: boolean = false): Promise<User> {
     const userId = this.extractUserIdFromAuth(request);
 
