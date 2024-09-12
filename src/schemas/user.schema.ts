@@ -18,7 +18,7 @@ export class User extends BaseSchema {
   phone: string;
 
   @Prop()
-  addess: string;
+  address: string;
 
   @Prop({ type: String, enum: Gender })
   gender: Gender;
