@@ -8,6 +8,7 @@ import { COLLECTION_CACHE_PREFIX } from "@app/constants";
 import { CreateCollectionPayload } from "@app/models";
 import { Collection, Product } from "@app/schemas";
 import { joinCacheKey } from "@app/utils";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class CollectionService {
@@ -40,7 +41,7 @@ export class CollectionService {
     const collection: Collection = await this.findCollectionById(id);
 
     if (!collection) {
-      throw new BadRequestException("Collection not found");
+      throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
     }
 
     return collection;

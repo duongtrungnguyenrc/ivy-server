@@ -1,11 +1,12 @@
-import { Body, Controller, HttpCode, Ip, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiTags } from "@nestjs/swagger";
 import { Request } from "express";
 
-import { JWTAccessAuthGuard, JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
+import { JWTAccessAuthGuard, JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
 import { AuthService } from "@app/services";
 import { User } from "@app/schemas";
+import { IpAddress } from "@app/decorators";
 
 @Controller("auth")
 @ApiTags("auth")
@@ -50,8 +51,10 @@ export class AuthController {
   })
   forgotPassword(
     @Body() payload: ForgotPasswordPayload,
-    @Ip() ipAddress: string,
+    @IpAddress() ipAddress: string,
   ): Promise<Omit<ResetPasswordTransaction, "otpCode">> {
+    console.log(ipAddress);
+
     return this.authService.forgotPassword(payload, ipAddress);
   }
 
@@ -59,7 +62,7 @@ export class AuthController {
   @ApiBody({
     type: ResetPasswordPayload,
   })
-  resetPassword(@Body() payload: ResetPasswordPayload, @Ip() ipAddress: string): Promise<User> {
+  resetPassword(@Body() payload: ResetPasswordPayload, @IpAddress() ipAddress: string): Promise<User> {
     return this.authService.resetPassword(payload, ipAddress);
   }
 }

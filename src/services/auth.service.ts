@@ -10,8 +10,8 @@ import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPaylo
 import { getTokenFromRequest, joinCacheKey } from "@app/utils";
 import { JwtAccessService, JwtRefreshService } from ".";
 import { UserService } from "./user.service";
-import { User } from "@app/schemas";
 import { ErrorMessage } from "@app/enums";
+import { User } from "@app/schemas";
 
 @Injectable()
 export class AuthService {
@@ -19,20 +19,20 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtAccessService: JwtAccessService,
     private readonly jwtRefreshService: JwtRefreshService,
+    private readonly mailService: MailerService, 
     private readonly cacheManager: Cache,
-    private readonly mailService: MailerService,
   ) {}
 
   async validateUser(payload: SignInPayload): Promise<boolean> {
     const { email, password } = payload;
 
-    const user: User = await this.userService.findUserByEmail(email, ["password"]);
+    const user: User = await this.userService.findOneUser({ email }, ["password"], [], true);
 
-    if (!user) throw new BadRequestException("User not found!");
+    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL);
 
     const isMatch: boolean = await compare(password, user.password);
 
-    if (!isMatch) throw new BadRequestException("Invalid password!");
+    if (!isMatch) throw new BadRequestException(ErrorMessage.WRONG_PASSWORD);
 
     return isMatch;
   }
@@ -40,7 +40,9 @@ export class AuthService {
   async signIn(payload: SignInPayload): Promise<TokenPair> {
     const { email } = payload;
 
-    const user: User = await this.userService.findUserByEmail(email, ["password"]);
+    const user: User = await this.userService.findOneUser({ email });
+
+    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL);
 
     const cachedTokenPair: TokenPair = await this.getCachedTokenPair(user._id);
 
@@ -124,14 +126,20 @@ export class AuthService {
   async resetPassword(payload: ResetPasswordPayload, ipAddress: string): Promise<User> {
     const { newPassword, userId, otpCode } = payload;
 
+    console.info("Reset pass IP: ", ipAddress);
+
     const cachedTransaction: ResetPasswordTransaction = await this.getCachedResetPasswordTransaction(userId);
 
+    if (!cachedTransaction) {
+      throw new BadRequestException(ErrorMessage.INVALID_RESET_PASSWORD_SESSION);
+    }
+
     if (ipAddress != cachedTransaction.ipAddress) {
-      throw new BadRequestException("Địa chỉ Ip không hợp lệ");
+      throw new BadRequestException(ErrorMessage.INVALID_IP_ADDRESS);
     }
 
     if (otpCode != cachedTransaction.otpCode) {
-      throw new BadRequestException("Mã OTP không hợp lệ");
+      throw new BadRequestException(ErrorMessage.INVALID_OTP);
     }
 
     const salf = await genSalt(10);

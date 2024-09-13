@@ -1,11 +1,13 @@
-import { AddCartItemPayload } from "@app/models";
-import { Cart, CartItem, User } from "@app/schemas";
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Request } from "express";
 import { Model } from "mongoose";
-import { UserService } from "./user.service";
+
+import { Cart, CartItem, User } from "@app/schemas";
 import { ProductService } from "./product.service";
+import { AddCartItemPayload } from "@app/models";
+import { UserService } from "./user.service";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class CartService {
@@ -14,8 +16,8 @@ export class CartService {
     private readonly cartModel: Model<Cart>,
     @InjectModel(CartItem.name)
     private readonly cartItemModel: Model<CartItem>,
-    private readonly userService: UserService,
     private readonly productService: ProductService,
+    private readonly userService: UserService,
   ) {}
 
   async addCartItem(payload: AddCartItemPayload, request: Request): Promise<Cart> {
@@ -27,11 +29,11 @@ export class CartService {
     ]);
 
     if (!product) {
-      throw new BadRequestException("Product not found");
+      throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
 
     if (!option) {
-      throw new BadRequestException("Product option not found");
+      throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
     }
 
     const newItem = await this.cartItemModel.create({ product, option, quantity });

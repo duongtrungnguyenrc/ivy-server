@@ -5,6 +5,7 @@ import { InjectModel } from "@nestjs/mongoose";
 import { CreateCollectionGroupPayload } from "@app/models";
 import { Collection, CollectionGroup } from "@app/schemas";
 import { CategoryService } from "./category.service";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class CollectionGroupService {
@@ -30,7 +31,7 @@ export class CollectionGroupService {
     const { _id, collections } = updates;
 
     if (!_id) {
-      throw new BadRequestException("CollectionGroup id is required");
+      throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_REQUIRED);
     }
 
     const updatedCollectionGroup: CollectionGroup = await this.collectionGroupModel.findByIdAndUpdate(
@@ -42,7 +43,7 @@ export class CollectionGroupService {
     );
 
     if (!updatedCollectionGroup) {
-      throw new BadRequestException("CollectionGroup not found");
+      throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_NOT_FOUND);
     }
 
     return updatedCollectionGroup;

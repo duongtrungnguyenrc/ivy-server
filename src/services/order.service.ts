@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import * as querystring from "qs";
 import * as crypto from "crypto";
 
-import { OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
+import { ErrorMessage, OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
 import { Option, Order, OrderItem, Product, User } from "@app/schemas";
 import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
 import { VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
@@ -37,17 +37,15 @@ export class OrderService {
         const option: Option = product.options.find(({ _id }) => _id == optionId);
 
         if (!product || product.isDeleted) {
-          throw new BadRequestException(`Sản phẩm ${product.name} không tồn tại`);
+          throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
         }
 
         if (!option) {
-          throw new BadRequestException(`Loại sản phẩm không tồn tại ở sản phẩm ${product.name}`);
+          throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
         }
 
         if (option.stock <= 0 || option.stock < quantity) {
-          throw new BadRequestException(
-            `Xin lỗi, chúng tôi đã hết hàng sản phẩm ${product.name}, size ${option.size}, màu sắc: ${option.colorName}`,
-          );
+          throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
         }
 
         this.productService.updateProductOptionById(optionId, {
@@ -122,7 +120,7 @@ export class OrderService {
     const order: Order = await this.orderModel.findByIdAndUpdate(id, updates);
 
     if (!order) {
-      throw new BadRequestException("Đơn hàng không tồn tại");
+      throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
     }
 
     return order;
@@ -172,7 +170,7 @@ export class OrderService {
 
       return paymentUrl;
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to create payment URL: ${error.message}`);
+      throw new InternalServerErrorException(`${ErrorMessage.CREATE_PAYMENT_TRANSACTION_FAILED}: ${error.message}`);
     }
   }
 

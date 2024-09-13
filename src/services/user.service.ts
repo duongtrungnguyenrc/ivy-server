@@ -32,16 +32,6 @@ export class UserService {
     return user;
   }
 
-  async findUserByEmail(email: string, includes: (keyof User)[] = []): Promise<User> {
-    const includeQueries = includes.map((key) => {
-      return `+${key}`;
-    });
-
-    const user: User = await this.userModel.findOne({ email: email }, includeQueries);
-
-    return user;
-  }
-
   async findOneUser(
     query: FilterQuery<User>,
     includes: (keyof User)[] = [],
@@ -62,7 +52,9 @@ export class UserService {
 
     const user: User = await this.userModel.findOne({ ...query }, includeQueries).populate(populate);
 
-    this.cacheManager.set(userCacheKey, user);
+    if (!user) return;
+
+    this.cacheManager.set(userCacheKey, user._id);
 
     return user;
   }

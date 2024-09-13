@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types, UpdateQuery } from "mongoose";
+import { InjectModel } from "@nestjs/mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
 import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
@@ -8,6 +8,7 @@ import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constant
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
 import { joinCacheKey } from "@app/utils";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class ProductService {
@@ -29,7 +30,7 @@ export class ProductService {
   async getProduct(id: string): Promise<Product> {
     const product: Product = await this.findProductById(id, ["currentCost", "options"]);
 
-    if (!product) throw new BadRequestException("Sản phẩm không tồn tại");
+    if (!product) throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
 
     return product;
   }
@@ -117,7 +118,7 @@ export class ProductService {
     });
 
     if (!collection) {
-      throw new BadRequestException("Invalid collection");
+      throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
     }
 
     const updateProductPayload: UpdateQuery<Product> = {
@@ -143,7 +144,7 @@ export class ProductService {
     });
 
     if (!updatedProduct) {
-      throw new BadRequestException("Sản phẩm không tồn tại");
+      throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
   }
 
@@ -157,7 +158,7 @@ export class ProductService {
     );
 
     if (!option && !raw) {
-      throw new Error("Product option not found");
+      throw new Error(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
     }
 
     return option;
@@ -172,7 +173,7 @@ export class ProductService {
     const product: Product = await this.productModel.findById(id).populate(populate);
 
     if (!product && !raw) {
-      throw new BadRequestException("Product not found");
+      throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
 
     this.cacheManager.set(productCacheKey, product);
@@ -189,7 +190,7 @@ export class ProductService {
     const option: Option = await this.optionModel.findById(id);
 
     if (!option && !raw) {
-      throw new BadRequestException("Product option not found");
+      throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
     }
 
     this.cacheManager.set(productOptionCacheKey, option);
