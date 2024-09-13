@@ -12,9 +12,11 @@ declare type TokenPair = {
   refreshToken: string;
 };
 
-declare type ResetPasswordTransactionPayload = {
+declare type ResetPasswordTransaction = {
   userId: string;
+  transactionId: string;
   otpCode: string;
+  ipAddress: string;
 };
 
 declare type Pagination = {

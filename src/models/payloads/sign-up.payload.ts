@@ -1,4 +1,4 @@
-import { IsEmail, IsEnum, IsMobilePhone, IsNotEmpty } from "class-validator";
+import { IsArray, IsEmail, IsEnum, IsMobilePhone, IsNotEmpty } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 import { Gender } from "@app/enums";
@@ -11,7 +11,11 @@ export class SignUpPayload implements Partial<User> {
 
   @ApiProperty()
   @IsNotEmpty()
-  name: string;
+  firstName: string;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  lastName: string;
 
   @ApiProperty()
   @IsMobilePhone()
@@ -22,8 +26,12 @@ export class SignUpPayload implements Partial<User> {
   password: string;
 
   @ApiProperty()
-  @IsNotEmpty()
-  address: string;
+  @IsArray()
+  address: string[];
+
+  @ApiProperty()
+  @IsArray()
+  addressCode: string[];
 
   @ApiProperty()
   @IsEnum(Gender)

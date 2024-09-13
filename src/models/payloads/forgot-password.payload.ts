@@ -1,15 +1,8 @@
-import { User } from "@app/schemas";
 import { ApiProperty } from "@nestjs/swagger";
-import { IsEmail, IsMongoId, IsOptional } from "class-validator";
+import { IsNotEmpty } from "class-validator";
 
-export class ForgotPasswordPayload implements Partial<User> {
+export class ForgotPasswordPayload {
   @ApiProperty()
-  @IsOptional()
-  @IsEmail()
-  email: string;
-
-  @ApiProperty()
-  @IsMongoId()
-  @IsOptional()
-  id?: string;
+  @IsNotEmpty()
+  emailOrPhone: string;
 }

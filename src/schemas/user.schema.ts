@@ -12,13 +12,19 @@ export class User extends BaseSchema {
   password: string;
 
   @Prop()
-  name: string;
+  firstName: string;
+
+  @Prop()
+  lastName: string;
 
   @Prop({ unique: true, required: false })
   phone: string;
 
   @Prop()
-  address: string;
+  address: string[];
+
+  @Prop()
+  addressCode: string[];
 
   @Prop({ type: String, enum: Gender })
   gender: Gender;

@@ -3,6 +3,7 @@ import { MailerService } from "@nestjs-modules/mailer";
 import { compare, genSalt, hash } from "bcrypt";
 import { Cache } from "@nestjs/cache-manager";
 import { Request } from "express";
+import { v4 as uuid } from "uuid";
 
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
@@ -68,7 +69,7 @@ export class AuthService {
       to: createdUser.email,
       subject: "Welcome to Ivy",
       template: "register",
-      context: { user: createdUser.name },
+      context: { user: createdUser.lastName + createdUser.lastName },
     });
   }
 
@@ -96,29 +97,38 @@ export class AuthService {
     return newTokenPair;
   }
 
-  async forgotPassword(payload: ForgotPasswordPayload): Promise<void> {
-    const { _id, email, name }: User = await this.userService.findOneUser({
-      email: payload.email,
+  async forgotPassword(
+    payload: ForgotPasswordPayload,
+    ipAddress: string,
+  ): Promise<Omit<ResetPasswordTransaction, "otpCode">> {
+    const { _id, email, firstName, lastName }: User = await this.userService.findOneUser({
+      $or: [{ email: payload.emailOrPhone }, { phone: payload.emailOrPhone }],
     });
 
     if (!_id) {
       throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
     }
 
-    const otpCode: string = await this.generateOTP(_id);
+    const { otpCode, ...transaction } = await this.createResetPasswordTransaction(_id, ipAddress);
 
     this.mailService.sendMail({
       to: email,
       subject: "Account Recovery OTP for Ivy",
       template: "forgot-password",
-      context: { user: name, otp: otpCode },
+      context: { user: `${lastName} ${firstName}`, otp: otpCode },
     });
+
+    return transaction;
   }
 
-  async resetPassword(payload: ResetPasswordPayload): Promise<void> {
+  async resetPassword(payload: ResetPasswordPayload, ipAddress: string): Promise<User> {
     const { newPassword, userId, otpCode } = payload;
 
-    const cachedTransaction: ResetPasswordTransactionPayload = await this.getCachedOtp(userId);
+    const cachedTransaction: ResetPasswordTransaction = await this.getCachedResetPasswordTransaction(userId);
+
+    if (ipAddress != cachedTransaction.ipAddress) {
+      throw new BadRequestException("Địa chỉ Ip không hợp lệ");
+    }
 
     if (otpCode != cachedTransaction.otpCode) {
       throw new BadRequestException("Mã OTP không hợp lệ");
@@ -129,29 +139,34 @@ export class AuthService {
 
     const updatedUser: User = await this.userService.updateUser({ _id: userId }, { password });
 
-    if (!updatedUser) {
-      throw new BadRequestException("Invalid user");
-    }
+    this.revokeResetPasswordTransaction(userId);
+
+    return updatedUser;
   }
 
   /* Helper functions */
 
-  private async generateOTP(userId: string): Promise<string> {
+  private async createResetPasswordTransaction(userId: string, ipAddress: string): Promise<ResetPasswordTransaction> {
     const otpCode: string = Array.from({ length: OTP_LENGTH }, () => Math.floor(Math.random() * 10)).join("");
+    const transactionId = uuid();
 
-    const cachePayload: ResetPasswordTransactionPayload = { userId, otpCode };
+    const transaction: ResetPasswordTransaction = { userId, transactionId, otpCode, ipAddress };
 
-    await this.cacheManager.set(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId), cachePayload, OTP_TTL);
+    await this.cacheManager.set(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId), transaction, OTP_TTL);
 
-    return otpCode;
+    return transaction;
   }
 
-  private async getCachedOtp(userId: string): Promise<ResetPasswordTransactionPayload> {
-    const transaction: ResetPasswordTransactionPayload = await this.cacheManager.get(
+  private async getCachedResetPasswordTransaction(userId: string): Promise<ResetPasswordTransaction> {
+    const transaction: ResetPasswordTransaction = await this.cacheManager.get(
       joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId),
     );
 
     return transaction;
+  }
+
+  private async revokeResetPasswordTransaction(userId: string): Promise<void> {
+    await this.cacheManager.del(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
   }
 
   private generateTokenPair(payload: any): TokenPair {
