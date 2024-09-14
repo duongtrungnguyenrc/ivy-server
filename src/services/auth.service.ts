@@ -7,9 +7,8 @@ import { v4 as uuid } from "uuid";
 
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
+import { JwtAccessService, JwtRefreshService, UserService } from ".";
 import { getTokenFromRequest, joinCacheKey } from "@app/utils";
-import { JwtAccessService, JwtRefreshService } from ".";
-import { UserService } from "./user.service";
 import { ErrorMessage } from "@app/enums";
 import { User } from "@app/schemas";
 
@@ -19,7 +18,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtAccessService: JwtAccessService,
     private readonly jwtRefreshService: JwtRefreshService,
-    private readonly mailService: MailerService, 
+    private readonly mailService: MailerService,
     private readonly cacheManager: Cache,
   ) {}
 
@@ -69,9 +68,9 @@ export class AuthService {
 
     this.mailService.sendMail({
       to: createdUser.email,
-      subject: "Welcome to Ivy",
+      subject: "Chào mừng đến với IVY fashion",
       template: "register",
-      context: { user: createdUser.lastName + createdUser.lastName },
+      context: { user: `${createdUser.lastName} ${createdUser.firstName}` },
     });
   }
 
@@ -115,9 +114,9 @@ export class AuthService {
 
     this.mailService.sendMail({
       to: email,
-      subject: "Account Recovery OTP for Ivy",
+      subject: "Khôi phục tài khoản IVY fashion",
       template: "forgot-password",
-      context: { user: `${lastName} ${firstName}`, otp: otpCode },
+      context: { user: `${lastName} ${firstName}`, otpCode },
     });
 
     return transaction;
@@ -125,8 +124,6 @@ export class AuthService {
 
   async resetPassword(payload: ResetPasswordPayload, ipAddress: string): Promise<User> {
     const { newPassword, userId, otpCode } = payload;
-
-    console.info("Reset pass IP: ", ipAddress);
 
     const cachedTransaction: ResetPasswordTransaction = await this.getCachedResetPasswordTransaction(userId);
 
@@ -177,7 +174,7 @@ export class AuthService {
     await this.cacheManager.del(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
   }
 
-  private generateTokenPair(payload: any): TokenPair {
+  private generateTokenPair(payload: JwtPayload): TokenPair {
     return {
       accessToken: this.jwtAccessService.generateToken(payload),
       refreshToken: this.jwtRefreshService.generateToken(payload),

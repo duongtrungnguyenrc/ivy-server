@@ -38,9 +38,9 @@ export class UserService {
     populate: (keyof User)[] = [],
     force: boolean = false,
   ): Promise<User> {
-    const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, query._id);
+    if (!force && query._id) {
+      const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, query._id);
 
-    if (!force) {
       const cachedUser: User = await this.cacheManager.get(userCacheKey);
 
       if (cachedUser) return cachedUser;
@@ -54,7 +54,9 @@ export class UserService {
 
     if (!user) return;
 
-    this.cacheManager.set(userCacheKey, user._id);
+    const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, user._id);
+
+    this.cacheManager.set(userCacheKey, user);
 
     return user;
   }
