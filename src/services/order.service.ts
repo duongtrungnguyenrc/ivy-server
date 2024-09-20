@@ -10,10 +10,11 @@ import * as crypto from "crypto";
 import { ErrorMessage, OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
 import { Option, Order, OrderItem, Product, User } from "@app/schemas";
 import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
-import { VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
+import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
 import { ProductService } from "./product.service";
 import { UserService } from "./user.service";
 import { CartService } from "./cart.service";
+import { Cache } from "@nestjs/cache-manager";
 
 @Injectable()
 export class OrderService {
@@ -26,9 +27,18 @@ export class OrderService {
     private readonly productService: ProductService,
     private readonly configService: ConfigService,
     private readonly userServide: UserService,
+    private readonly cacheManage: Cache,
   ) {}
 
-  async createOrder(payload: CreateOrderPayload, request: Request, res: Response): Promise<Order> {
+  async getOrder(id: string, force: boolean = false): Promise<Order> {
+    const cachedOrder: Order | undefined = await this.cacheManage.get(ORDER_CACHE_PREFIX);
+
+    if (cachedOrder && !force) return cachedOrder;
+
+    return await this.orderModel.findById(id);
+  }
+
+  async createOrder(payload: CreateOrderPayload, userId: string, ipAddress: string, res: Response): Promise<Order> {
     const { items, ...order } = payload;
 
     const createdItems: OrderItem[] = await Promise.all(
@@ -63,7 +73,7 @@ export class OrderService {
       }),
     );
 
-    const user: User = await this.userServide.findUserFromAuth(request, true);
+    const user: User = await this.userServide.findOneUser({ _id: userId });
 
     const totalCost: number = createdItems.reduce((prev, current) => {
       const { saleCost, discountPercentage } = current.cost;
@@ -85,7 +95,7 @@ export class OrderService {
         createdOrder._id,
         VNPAY_FASHION_PRODUCT_TYPE,
         `Đơn hàng Ivy cho ${createdOrder.name}`,
-        request.ip,
+        ipAddress,
       );
 
       res.redirect(paymentUrl);

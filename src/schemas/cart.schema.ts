@@ -7,10 +7,10 @@ import { User } from "./user.schema";
 
 @Schema()
 export class Cart extends BaseSchema {
-  @Prop({ type: mongoose.Types.ObjectId, ref: "User", required: false })
+  @Prop({ type: mongoose.Types.ObjectId, ref: "User", required: true })
   user: User;
 
-  @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "CartItem", default: [] })
+  @Prop({ type: [{ type: mongoose.Schema.Types.ObjectId }], ref: "CartItem", default: [] })
   items: CartItem[];
 }
 

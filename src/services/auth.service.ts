@@ -1,14 +1,13 @@
-import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { compare, genSalt, hash } from "bcrypt";
 import { Cache } from "@nestjs/cache-manager";
-import { Request } from "express";
 import { v4 as uuid } from "uuid";
+import { compare } from "bcrypt";
 
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
 import { JwtAccessService, JwtRefreshService, UserService } from ".";
-import { getTokenFromRequest, joinCacheKey } from "@app/utils";
+import { joinCacheKey } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
 import { User } from "@app/schemas";
 
@@ -22,41 +21,32 @@ export class AuthService {
     private readonly cacheManager: Cache,
   ) {}
 
-  async validateUser(payload: SignInPayload): Promise<boolean> {
-    const { email, password } = payload;
+  async validateUser({ email, password }: SignInPayload): Promise<boolean> {
+    const user = await this.userService.findOneUser({ email }, ["password"], [], true);
+    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
 
-    const user: User = await this.userService.findOneUser({ email }, ["password"], [], true);
-
-    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL);
-
-    const isMatch: boolean = await compare(password, user.password);
-
-    if (!isMatch) throw new BadRequestException(ErrorMessage.WRONG_PASSWORD);
+    const isMatch = await compare(password, user.password);
+    if (!isMatch) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
 
     return isMatch;
   }
 
-  async signIn(payload: SignInPayload): Promise<TokenPair> {
-    const { email } = payload;
+  async signIn({ email }: SignInPayload, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
+    const user = await this.userService.findOneUser({ email });
+    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
 
-    const user: User = await this.userService.findOneUser({ email });
-
-    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL);
-
-    const cachedTokenPair: TokenPair = await this.getCachedTokenPair(user._id);
+    const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {
+      await this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
       return cachedTokenPair;
     }
 
-    const tokenPayload: JwtPayload = {
-      userId: user._id,
-      role: user.role,
-    };
-
-    const tokenPair: TokenPair = this.generateTokenPair(tokenPayload);
+    const tokenPayload: JwtPayload = { userId: user._id, role: user.role };
+    const tokenPair = this.generateTokenPair(tokenPayload);
 
     this.cacheTokenPair(user._id, tokenPair);
+    this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
 
     return tokenPair;
   }
@@ -70,53 +60,31 @@ export class AuthService {
       to: createdUser.email,
       subject: "Chào mừng đến với IVY fashion",
       template: "register",
-      context: { user: `${createdUser.lastName} ${createdUser.firstName}` },
+      context: { user: `${createdUser.lastName} ${createdUser.firstName} ` },
     });
   }
 
-  async signOut(request: Request): Promise<void> {
-    const userId: string = this.userService.extractUserIdFromAuth(request);
-
-    if (!userId) {
-      throw new UnauthorizedException(ErrorMessage.INVALID_AUTH_TOKEN);
-    }
-
-    this.revokeTokenPair(userId);
-  }
-
-  async refreshToken(request: Request): Promise<TokenPair> {
-    const refreshToken: string = getTokenFromRequest(request);
-
-    const { exp: _, iat: __, ...tokenPayload }: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
-
-    this.revokeTokenPair(tokenPayload.userId);
-
-    const newTokenPair: TokenPair = this.generateTokenPair(tokenPayload);
-
-    this.cacheTokenPair(tokenPayload.userId, newTokenPair);
-
-    return newTokenPair;
+  async signOut(userId: string): Promise<void> {
+    await this.revokeTokenPair(userId);
   }
 
   async forgotPassword(
-    payload: ForgotPasswordPayload,
+    { emailOrPhone }: ForgotPasswordPayload,
     ipAddress: string,
   ): Promise<Omit<ResetPasswordTransaction, "otpCode">> {
-    const { _id, email, firstName, lastName }: User = await this.userService.findOneUser({
-      $or: [{ email: payload.emailOrPhone }, { phone: payload.emailOrPhone }],
+    const user = await this.userService.findOneUser({
+      $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
-    if (!_id) {
-      throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
-    }
+    if (!user) throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
 
-    const { otpCode, ...transaction } = await this.createResetPasswordTransaction(_id, ipAddress);
+    const { otpCode, ...transaction } = await this.createResetPasswordTransaction(user._id, ipAddress);
 
-    this.mailService.sendMail({
-      to: email,
-      subject: "Khôi phục tài khoản IVY fashion",
+    await this.mailService.sendMail({
+      to: user.email,
+      subject: "Password Recovery",
       template: "forgot-password",
-      context: { user: `${lastName} ${firstName}`, otpCode },
+      context: { user: `${user.lastName} ${user.firstName}`, otpCode },
     });
 
     return transaction;
@@ -125,28 +93,33 @@ export class AuthService {
   async resetPassword(payload: ResetPasswordPayload, ipAddress: string): Promise<User> {
     const { newPassword, userId, otpCode } = payload;
 
-    const cachedTransaction: ResetPasswordTransaction = await this.getCachedResetPasswordTransaction(userId);
+    const cachedTransaction = await this.getCachedResetPasswordTransaction(userId);
+    if (!cachedTransaction) throw new BadRequestException(ErrorMessage.INVALID_RESET_PASSWORD_SESSION);
 
-    if (!cachedTransaction) {
-      throw new BadRequestException(ErrorMessage.INVALID_RESET_PASSWORD_SESSION);
-    }
-
-    if (ipAddress != cachedTransaction.ipAddress) {
-      throw new BadRequestException(ErrorMessage.INVALID_IP_ADDRESS);
-    }
-
-    if (otpCode != cachedTransaction.otpCode) {
+    if (otpCode !== cachedTransaction.otpCode || ipAddress !== cachedTransaction.ipAddress) {
       throw new BadRequestException(ErrorMessage.INVALID_OTP);
     }
 
-    const salf = await genSalt(10);
-    const password: string = await hash(newPassword, salf);
+    const hashedPassword = await this.userService.hashPassword(newPassword);
+    const updatedUser = await this.userService.findAndUpdateUser({ _id: userId }, { password: hashedPassword });
 
-    const updatedUser: User = await this.userService.updateUser({ _id: userId }, { password });
-
-    this.revokeResetPasswordTransaction(userId);
+    await this.revokeResetPasswordTransaction(userId);
 
     return updatedUser;
+  }
+
+  async refreshToken(refreshToken: string, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
+    const { exp: _, iat: __, ...tokenPayload }: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
+
+    this.revokeTokenPair(tokenPayload.userId);
+
+    const newTokenPair: TokenPair = this.generateTokenPair(tokenPayload);
+
+    this.cacheTokenPair(tokenPayload.userId, newTokenPair);
+
+    this.userService.createAccessRecord(tokenPayload.userId, requestAgent, ipAddress);
+
+    return newTokenPair;
   }
 
   /* Helper functions */

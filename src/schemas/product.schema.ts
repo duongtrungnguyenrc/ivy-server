@@ -30,6 +30,9 @@ export class Product extends BaseSchema {
   @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Option" })
   options: Option[];
 
+  @Prop()
+  images: string[];
+
   @Prop({ type: mongoose.Types.ObjectId, ref: "Cost" })
   currentCost: Cost;
 

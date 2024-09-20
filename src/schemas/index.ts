@@ -11,3 +11,4 @@ export * from "./order.schema";
 export * from "./order-item.schema";
 export * from "./cart.schema";
 export * from "./cart-item.schema";
+export * from "./access-record.schema";

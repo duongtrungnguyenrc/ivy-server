@@ -6,3 +6,5 @@ export const USER_CACHE_PREFIX = "user:";
 export const PRODUCT_CACHE_PREFIX = "product:";
 export const PRODUCT_OPTION_CACHE_PREFIX = "option:";
 export const COLLECTION_CACHE_PREFIX = "collection:";
+export const ORDER_CACHE_PREFIX = "order:";
+export const CART_CACHE_PREFIX = "cart:";

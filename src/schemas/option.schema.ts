@@ -13,9 +13,6 @@ export class Option extends BaseSchema {
   @Prop({ type: String, enum: Size })
   size: Size;
 
-  @Prop()
-  images: string[];
-
   @Prop({ default: 0 })
   stock: number;
 }

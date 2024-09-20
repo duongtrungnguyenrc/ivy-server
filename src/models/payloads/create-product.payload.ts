@@ -9,10 +9,6 @@ class CreateOptionPayload {
   @ApiProperty()
   @IsNumber()
   stock: number;
-
-  @ApiProperty()
-  @IsArray()
-  images: string[];
 }
 
 class CreateCostPayload {
@@ -58,6 +54,10 @@ export class CreateProductPayload {
   @IsNotEmpty()
   @IsMongoId()
   collectionId: string;
+
+  @ApiProperty()
+  @IsArray()
+  images: string[];
 
   @ApiProperty({ type: [CreateOptionPayload] })
   options: CreateOptionPayload[];

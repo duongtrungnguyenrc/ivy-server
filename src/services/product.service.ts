@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
-import { Model, Types, UpdateQuery } from "mongoose";
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
+import { ClientSession, Model, Types, UpdateQuery } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
@@ -35,11 +35,13 @@ export class ProductService {
     return product;
   }
 
-  async getProductsByCollection(id: string, page: number, limit: number): Promise<GetProductsByCollectionResponse> {
+  async getProductsByCollection(id: string, pagination: Pagination): Promise<GetProductsByCollectionResponse> {
+    const { page, limit } = pagination;
+
     const collection: Collection = await this.collectionService.findCollectionById(id, [], true);
 
     if (!collection) {
-      throw new BadRequestException(`Danh mục không tồn tại`);
+      throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
     }
 
     const skip = (page - 1) * limit;
@@ -68,26 +70,33 @@ export class ProductService {
   async createProduct(payload: CreateProductPayload): Promise<Product> {
     const { options, cost, collectionId, ...product } = payload;
 
-    const createCostQuery: Promise<Cost> = this.costModel.create(cost);
+    const session: ClientSession = await this.productModel.db.startSession();
+    session.startTransaction();
 
-    const createOptionsQuery: Promise<Option[]> = this.optionModel.create(options);
+    try {
+      const createdCost = await this.costModel.create([cost], { session });
+      const createdOptions = await this.optionModel.insertMany(options, { session });
 
-    const [createdCost, createdOptions] = await Promise.all([createCostQuery, createOptionsQuery]).catch((error) => {
+      const createProductPayload = {
+        ...product,
+        options: createdOptions.map((option) => option._id),
+        currentCost: createdCost[0]._id,
+        costs: [createdCost[0]._id],
+      };
+
+      const createdProduct = await this.productModel.create([createProductPayload], { session });
+
+      this.collectionService.addProduct(collectionId, createdProduct[0]);
+
+      await session.commitTransaction();
+
+      return createdProduct[0];
+    } catch (error) {
+      await session.abortTransaction();
       throw new InternalServerErrorException(error.message);
-    });
-
-    const createProducePayload: UpdateQuery<Product> = {
-      ...product,
-      options: createdOptions.map((option) => new Types.ObjectId(option._id)),
-      currentCost: createdCost,
-      costs: [createdCost],
-    };
-
-    const createdProduct: Product = await this.productModel.create(createProducePayload);
-
-    this.collectionService.addProduct(collectionId, createdProduct);
-
-    return createdProduct;
+    } finally {
+      session.endSession();
+    }
   }
 
   async updateProduct(id: string, payload: UpdateProductPayload): Promise<Product> {
@@ -162,6 +171,22 @@ export class ProductService {
     }
 
     return option;
+  }
+
+  async checkProductAndOptionExist(productId: string, optionId: string): Promise<boolean> {
+    const productExists = await this.productModel.exists({ _id: new Types.ObjectId(productId) });
+    if (!productExists) {
+      throw new NotFoundException(ErrorMessage.PRODUCT_NOT_FOUND);
+    }
+
+    const optionExists = await this.optionModel.exists({
+      _id: new Types.ObjectId(optionId),
+    });
+    if (!optionExists) {
+      throw new NotFoundException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
+    }
+
+    return true;
   }
 
   async findProductById(id: string, populate: (keyof Product)[] = [], raw: boolean = false): Promise<Product> {

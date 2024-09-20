@@ -42,6 +42,7 @@
     "dateformat": "^5.0.3",
     "install": "^0.13.0",
     "mongoose": "^8.6.0",
+    "node-device-detector": "^2.1.4",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-jwt": "^4.0.1",
@@ -50,6 +51,8 @@
     "reflect-metadata": "^0.2.0",
     "reflector": "^0.0.4",
     "rxjs": "^7.8.1",
+    "ua-parser-js": "^1.0.39",
+    "useragent": "^2.3.0",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
@@ -66,6 +69,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/supertest": "^6.0.0",
+    "@types/ua-parser-js": "^0.7.39",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",

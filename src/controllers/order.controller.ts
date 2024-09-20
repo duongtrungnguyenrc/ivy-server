@@ -3,6 +3,7 @@ import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 
 import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
+import { AuthUid, IpAddress } from "@app/decorators";
 import { OrderService } from "@app/services";
 import { Order } from "@app/schemas";
 
@@ -14,8 +15,13 @@ export class OrderController {
   @Post("/")
   @ApiBody({ type: CreateOrderPayload })
   @ApiResponse({ type: Order })
-  createOrder(@Body() payload: CreateOrderPayload, @Req() request: Request, @Res() response: Response): Promise<Order> {
-    return this.orderService.createOrder(payload, request, response);
+  createOrder(
+    @Body() payload: CreateOrderPayload,
+    @AuthUid() userId: string,
+    @IpAddress() IpAddress: string,
+    @Res() response: Response,
+  ): Promise<Order> {
+    return this.orderService.createOrder(payload, userId, IpAddress, response);
   }
 
   @Put("/:id")

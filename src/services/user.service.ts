@@ -1,48 +1,94 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
-import { Model, FilterQuery } from "mongoose";
+import { Model, FilterQuery, Types } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 import { genSalt, hash } from "bcrypt";
-import { decode } from "jsonwebtoken";
-import { Request } from "express";
 
-import { getTokenFromRequest, joinCacheKey } from "@app/utils";
+import { joinCacheKey } from "@app/utils";
 import { USER_CACHE_PREFIX } from "@app/constants";
-import { User } from "@app/schemas";
+import { AccessRecord, User } from "@app/schemas";
+import { GetAccessHistoryResponse, UpdateUserPayload } from "@app/models";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name)
     private readonly userModel: Model<User>,
+    @InjectModel(AccessRecord.name)
+    private readonly accessRecordModel: Model<AccessRecord>,
     private readonly cacheManager: Cache,
   ) {}
 
-  async getUser(id: string): Promise<User> {
-    return await this.findOneUser({ _id: id });
+  async getAuthUser(id: string): Promise<User> {
+    const user = await this.findOneUser({ _id: id });
+
+    if(!user) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED)
+
+    return user
   }
 
-  async findUserFromAuth(request: Request, raw: boolean = false): Promise<User> {
-    const userId = this.extractUserIdFromAuth(request);
+  async updateUser(payload: UpdateUserPayload, userId: string): Promise<User> {
+    const updatedUser = await this.userModel.findByIdAndUpdate(userId, payload, { new: true });
 
-    const user: User = await this.findOneUser({ _id: userId });
+    if (!updatedUser) throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
 
-    if (!userId && !raw) throw new UnauthorizedException("User not found");
+    await this.clearUserCache(updatedUser._id);
+    return updatedUser;
+  }
 
-    return user;
+  async createAccessRecord(userId: string, requestAgent: [string, string], ipAddress: string): Promise<AccessRecord> {
+    const [deviceInfo, browserInfo] = requestAgent;
+    const user = await this.userModel.findById(userId);
+
+    const record = new this.accessRecordModel({
+      user: user,
+      deviceInfo,
+      browserInfo,
+      ipAddress,
+    });
+
+    return record.save();
+  }
+
+  async getAccessHistory(userId: string, { page, limit }: Pagination): Promise<GetAccessHistoryResponse> {
+    const recordsQuantity = await this.accessRecordModel.countDocuments({ user: new Types.ObjectId(userId) }).lean();
+
+    const totalPages = Math.ceil(recordsQuantity / limit);
+
+    const records: AccessRecord[] = await this.accessRecordModel
+      .find({ user: new Types.ObjectId(userId) })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const responseData: GetAccessHistoryResponse = {
+      accessRecords: records.map((record) => {
+        const parsedCreatedTime = new Date(record.createdAt);
+
+        const time = `${parsedCreatedTime.toLocaleTimeString("vn")} ${parsedCreatedTime.toDateString()}`;
+        return {
+          ...record,
+          createdAt: time,
+        };
+      }),
+      page: page,
+      limit: limit,
+      totalPages: totalPages,
+    };
+
+    return responseData;
   }
 
   async findOneUser(
     query: FilterQuery<User>,
     includes: (keyof User)[] = [],
     populate: (keyof User)[] = [],
-    force: boolean = false,
+    force = false,
   ): Promise<User> {
     if (!force && query._id) {
-      const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, query._id);
-
-      const cachedUser: User = await this.cacheManager.get(userCacheKey);
-
+      const cachedUser = await this.getUserFromCache(query._id);
       if (cachedUser) return cachedUser;
     }
 
@@ -50,50 +96,42 @@ export class UserService {
       return `+${key}`;
     });
 
-    const user: User = await this.userModel.findOne({ ...query }, includeQueries).populate(populate);
-
-    if (!user) return;
-
-    const userCacheKey: string = joinCacheKey(USER_CACHE_PREFIX, user._id);
-
-    this.cacheManager.set(userCacheKey, user);
-
-    return user;
-  }
-
-  async findUsers(query: FilterQuery<User>, includes: (keyof User)[] = []): Promise<User[]> {
-    const includeQueries = includes.map((key) => {
-      return `+${key}`;
-    });
-
-    const user: User[] = await this.userModel.find({ ...query }, includeQueries);
+    const user = await this.userModel.findOne(query, includeQueries).populate(populate).lean();
+    if (user) await this.cacheUser(user._id, user);
 
     return user;
   }
 
   async createUser(payload: Partial<User>): Promise<User> {
     const { password, ...userInfo } = payload;
+    const hashedPassword = await this.hashPassword(password);
 
-    const salf = await genSalt();
-    const hashedPassword: string = await hash(password, salf);
-
-    const createdUser: User = await this.userModel.create({
+    const createdUser = new this.userModel({
       ...userInfo,
       password: hashedPassword,
     });
 
-    return createdUser;
+    return createdUser.save();
   }
 
-  async updateUser(payload: FilterQuery<User>, updates: Partial<User>): Promise<User> {
-    return this.userModel.findOneAndUpdate(payload, updates, { new: true });
+  async findAndUpdateUser(payload: FilterQuery<User>, updates: Partial<User>): Promise<User> {
+    return await this.userModel.findOneAndUpdate(payload, updates, { new: true });
   }
 
-  extractUserIdFromAuth(request: Request): string {
-    const accessToken = getTokenFromRequest(request);
+  async hashPassword(password: string): Promise<string> {
+    const salt = await genSalt(10);
+    return hash(password, salt);
+  }
 
-    const payload = decode(accessToken);
+  private async getUserFromCache(userId: string): Promise<User | null> {
+    return this.cacheManager.get<User>(joinCacheKey(USER_CACHE_PREFIX, userId));
+  }
 
-    return payload?.["userId"];
+  private async cacheUser(userId: string, user: User): Promise<void> {
+    await this.cacheManager.set(joinCacheKey(USER_CACHE_PREFIX, userId), user);
+  }
+
+  private async clearUserCache(userId: string): Promise<void> {
+    await this.cacheManager.del(joinCacheKey(USER_CACHE_PREFIX, userId));
   }
 }

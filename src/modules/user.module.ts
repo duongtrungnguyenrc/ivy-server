@@ -2,7 +2,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { Module } from "@nestjs/common";
 
 import { UserService } from "@app/services";
-import { User, UserSchema } from "@app/schemas";
+import { AccessRecord, AccessRecordSchema, User, UserSchema } from "@app/schemas";
 import { UserController } from "@app/controllers";
 
 @Module({
@@ -11,6 +11,10 @@ import { UserController } from "@app/controllers";
       {
         name: User.name,
         schema: UserSchema,
+      },
+      {
+        name: AccessRecord.name,
+        schema: AccessRecordSchema,
       },
     ]),
   ],

@@ -4,7 +4,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } fro
 import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
 import { JWTAccessAuthGuard } from "@app/guards";
 import { ProductService } from "@app/services";
-import { HasRole } from "@app/decorators";
+import { HasRole, Pagination } from "@app/decorators";
 import { Product } from "@app/schemas";
 
 @Controller("product")
@@ -25,10 +25,9 @@ export class ProductController {
   @Get("/")
   getProductsByCollection(
     @Query("collection") collectionId: string,
-    @Query("page") page: number = 1,
-    @Query("limit") limit: number = 20,
+    @Pagination() pagination: Pagination,
   ): Promise<GetProductsByCollectionResponse> {
-    return this.productService.getProductsByCollection(collectionId, page, limit);
+    return this.productService.getProductsByCollection(collectionId, pagination);
   }
 
   @Post("/")
@@ -37,8 +36,8 @@ export class ProductController {
   @ApiBearerAuth()
   @ApiBody({ type: CreateProductPayload })
   @ApiResponse({ type: Product })
-  createProduct(@Body() payload: CreateProductPayload): Promise<Product> {
-    return this.productService.createProduct(payload);
+  async createProduct(@Body() payload: CreateProductPayload): Promise<Product> {
+    return await this.productService.createProduct(payload);
   }
 
   @Put("/:id")

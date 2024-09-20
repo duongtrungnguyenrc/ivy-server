@@ -9,12 +9,5 @@ export const IpAddress = createParamDecorator((_, ctx: ExecutionContext): string
     request.socket?.remoteAddress ||
     request.connection?.socket?.remoteAddress;
 
-  console.log(
-    request.headers["x-forwarded-for"],
-    request.connection?.remoteAddress,
-    request.socket?.remoteAddress,
-    request.connection?.socket?.remoteAddress,
-  );
-
   return Array.isArray(ip) ? ip[0] : ip;
 });
