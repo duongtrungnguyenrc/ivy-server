@@ -1,4 +1,4 @@
-import { BadRequestException, HttpException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
@@ -6,6 +6,7 @@ import { Cart, CartItem } from "@app/schemas";
 import { ProductService } from "./product.service";
 import { AddCartItemPayload } from "@app/models";
 import { ErrorMessage } from "@app/enums";
+import { withMutateTransaction } from "@app/utils";
 
 @Injectable()
 export class CartService {
@@ -17,128 +18,75 @@ export class CartService {
     private readonly productService: ProductService,
   ) {}
 
+  private getCartPopulationOptions() {
+    return {
+      path: "items",
+      populate: [
+        {
+          path: "product",
+          model: "Product",
+          select: ["name", "currentCost", "images"],
+          populate: { path: "currentCost", model: "Cost" },
+        },
+        {
+          path: "option",
+          model: "Option",
+        },
+      ],
+    };
+  }
+
   async addCartItem(payload: AddCartItemPayload, userId: string): Promise<Cart> {
     const { productId, optionId, quantity } = payload;
-
     const session = await this.cartItemModel.db.startSession();
-    session.startTransaction();
 
-    try {
+    return withMutateTransaction(session, async () => {
       const productExists = await this.productService.checkProductAndOptionExist(productId, optionId);
+
       if (!productExists) {
         throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
       }
 
       const newItems = await this.cartItemModel.create(
-        [
-          {
-            product: new Types.ObjectId(productId),
-            option: new Types.ObjectId(optionId),
-            quantity,
-          },
-        ],
+        [{ product: new Types.ObjectId(productId), option: new Types.ObjectId(optionId), quantity }],
         { session },
       );
 
-      const cart: Cart = await this.cartModel
+      const cart = await this.cartModel
         .findOneAndUpdate(
           { user: new Types.ObjectId(userId) },
-          {
-            $push: { items: newItems[0] },
-          },
+          { $push: { items: newItems[0] } },
           { session, new: true, upsert: true },
         )
-        .populate({
-          path: "items",
-          populate: [
-            {
-              path: "product",
-              model: "Product",
-              select: ["name", "currentCost", "images"],
-              populate: {
-                path: "currentCost",
-                model: "Cost",
-              },
-            },
-            {
-              path: "option",
-              model: "Option",
-            },
-          ],
-        })
+        .populate(this.getCartPopulationOptions())
         .exec();
 
-      await session.commitTransaction();
-
       return cart;
-    } catch (error) {
-      await session.abortTransaction();
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new InternalServerErrorException(error.message);
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async getOrCreateCart(userId: string): Promise<Cart> {
-    const existingCart = await this.cartModel
+    const cart = await this.cartModel
       .findOne({ user: new Types.ObjectId(userId) })
-      .populate({
-        path: "items",
-        populate: [
-          {
-            path: "product",
-            model: "Product",
-            select: ["name", "currentCost", "images"],
-            populate: {
-              path: "currentCost",
-              model: "Cost",
-            },
-          },
-          {
-            path: "option",
-            model: "Option",
-          },
-        ],
-      })
+      .populate(this.getCartPopulationOptions())
       .exec();
 
-    if (!existingCart) {
-      const createdCart = await this.cartModel.create({ user: new Types.ObjectId(userId) });
-
-      return await createdCart.populate({
-        path: "items",
-        populate: [
-          {
-            path: "product",
-            model: "Product",
-            populate: {
-              path: "currentCost",
-              model: "Cost",
-            },
-          },
-          {
-            path: "option",
-            model: "Option",
-          },
-        ],
-      });
+    if (cart) {
+      return cart;
     }
 
-    return existingCart;
+    const newCart = await this.cartModel.create({ user: new Types.ObjectId(userId) });
+    return newCart.populate(this.getCartPopulationOptions());
   }
 
-  async deleteCartItem(cartId: string, itemId: string): Promise<Cart> {
-    const updatedCart = await this.cartModel.findByIdAndUpdate(cartId, {
-      $pull: { items: new Types.ObjectId(itemId) },
-      new: true,
-    });
+  async deleteCartItem(cartId: string, itemId: string): Promise<Cart | null> {
+    const updatedCart = await this.cartModel
+      .findByIdAndUpdate(cartId, { $pull: { items: new Types.ObjectId(itemId) } }, { new: true })
+      .exec();
 
-    await this.cartItemModel.findByIdAndDelete(itemId);
+    if (updatedCart) {
+      await this.cartItemModel.findByIdAndDelete(itemId).exec();
+    }
 
     return updatedCart;
   }

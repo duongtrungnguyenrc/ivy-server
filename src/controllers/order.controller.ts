@@ -18,10 +18,10 @@ export class OrderController {
   createOrder(
     @Body() payload: CreateOrderPayload,
     @AuthUid() userId: string,
-    @IpAddress() IpAddress: string,
+    @IpAddress() ipAddress: string,
     @Res() response: Response,
   ): Promise<Order> {
-    return this.orderService.createOrder(payload, userId, IpAddress, response);
+    return this.orderService.createOrder(payload, userId, ipAddress, response);
   }
 
   @Put("/:id")

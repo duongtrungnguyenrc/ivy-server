@@ -124,6 +124,26 @@ export class AuthService {
 
   /* Helper functions */
 
+  private generateTokenPair(payload: JwtPayload): TokenPair {
+    return {
+      accessToken: this.jwtAccessService.generateToken(payload),
+      refreshToken: this.jwtRefreshService.generateToken(payload),
+    };
+  }
+
+  private async cacheTokenPair(userId: string, tokenPair: TokenPair): Promise<void> {
+    const decodedAccessToken = this.jwtAccessService.decodeToken(tokenPair.accessToken);
+
+    const currentTime = Math.floor(Date.now() / 1000);
+    const tokenValidTime = (decodedAccessToken["exp"] - currentTime) * 1000;
+
+    await this.cacheManager.set(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId), tokenPair, tokenValidTime);
+  }
+
+  private async getCachedTokenPair(userId: string): Promise<TokenPair> {
+    return await this.cacheManager.get<TokenPair>(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
+  }
+
   private async createResetPasswordTransaction(userId: string, ipAddress: string): Promise<ResetPasswordTransaction> {
     const otpCode: string = Array.from({ length: OTP_LENGTH }, () => Math.floor(Math.random() * 10)).join("");
     const transactionId = uuid();
@@ -145,26 +165,6 @@ export class AuthService {
 
   private async revokeResetPasswordTransaction(userId: string): Promise<void> {
     await this.cacheManager.del(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
-  }
-
-  private generateTokenPair(payload: JwtPayload): TokenPair {
-    return {
-      accessToken: this.jwtAccessService.generateToken(payload),
-      refreshToken: this.jwtRefreshService.generateToken(payload),
-    };
-  }
-
-  private cacheTokenPair(userId: string, tokenPair: TokenPair): void {
-    const decodedAccessToken = this.jwtAccessService.decodeToken(tokenPair.accessToken);
-
-    const currentTime = Math.floor(Date.now() / 1000);
-    const tokenValidTime = (decodedAccessToken["exp"] - currentTime) * 1000;
-
-    this.cacheManager.set(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId), tokenPair, tokenValidTime);
-  }
-
-  private async getCachedTokenPair(userId: string): Promise<TokenPair> {
-    return await this.cacheManager.get<TokenPair>(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
   }
 
   async revokeTokenPair(userId: string): Promise<void> {

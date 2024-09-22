@@ -7,7 +7,7 @@ import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPay
 import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
-import { joinCacheKey } from "@app/utils";
+import { joinCacheKey, withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
@@ -73,7 +73,7 @@ export class ProductService {
     const session: ClientSession = await this.productModel.db.startSession();
     session.startTransaction();
 
-    try {
+    return withMutateTransaction(session, async () => {
       const createdCost = await this.costModel.create([cost], { session });
       const createdOptions = await this.optionModel.insertMany(options, { session });
 
@@ -91,12 +91,7 @@ export class ProductService {
       await session.commitTransaction();
 
       return createdProduct[0];
-    } catch (error) {
-      await session.abortTransaction();
-      throw new InternalServerErrorException(error.message);
-    } finally {
-      session.endSession();
-    }
+    });
   }
 
   async updateProduct(id: string, payload: UpdateProductPayload): Promise<Product> {

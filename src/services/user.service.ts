@@ -4,10 +4,10 @@ import { Model, FilterQuery, Types } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 import { genSalt, hash } from "bcrypt";
 
-import { joinCacheKey } from "@app/utils";
+import { GetAccessHistoryResponse, UpdateUserPayload } from "@app/models";
+import { joinCacheKey, withMutateTransaction } from "@app/utils";
 import { USER_CACHE_PREFIX } from "@app/constants";
 import { AccessRecord, User } from "@app/schemas";
-import { GetAccessHistoryResponse, UpdateUserPayload } from "@app/models";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
@@ -23,9 +23,9 @@ export class UserService {
   async getAuthUser(id: string): Promise<User> {
     const user = await this.findOneUser({ _id: id });
 
-    if(!user) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED)
+    if (!user) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
-    return user
+    return user;
   }
 
   async updateUser(payload: UpdateUserPayload, userId: string): Promise<User> {
@@ -39,16 +39,20 @@ export class UserService {
 
   async createAccessRecord(userId: string, requestAgent: [string, string], ipAddress: string): Promise<AccessRecord> {
     const [deviceInfo, browserInfo] = requestAgent;
-    const user = await this.userModel.findById(userId);
 
-    const record = new this.accessRecordModel({
-      user: user,
-      deviceInfo,
-      browserInfo,
-      ipAddress,
+    const session = await this.accessRecordModel.db.startSession();
+    session.startTransaction();
+
+    return withMutateTransaction(session, async () => {
+      const record = new this.accessRecordModel({
+        user: new Types.ObjectId(userId),
+        deviceInfo,
+        browserInfo,
+        ipAddress,
+      });
+
+      return record.save({ session });
     });
-
-    return record.save();
   }
 
   async getAccessHistory(userId: string, { page, limit }: Pagination): Promise<GetAccessHistoryResponse> {
@@ -67,7 +71,8 @@ export class UserService {
       accessRecords: records.map((record) => {
         const parsedCreatedTime = new Date(record.createdAt);
 
-        const time = `${parsedCreatedTime.toLocaleTimeString("vn")} ${parsedCreatedTime.toDateString()}`;
+        const time = `${parsedCreatedTime.toLocaleTimeString("vi-vn")} ${parsedCreatedTime.toLocaleDateString("vi-vn")}`;
+
         return {
           ...record,
           createdAt: time,
