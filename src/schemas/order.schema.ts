@@ -36,7 +36,7 @@ export class Order extends BaseSchema {
   shippingCost: number;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;
