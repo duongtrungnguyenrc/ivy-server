@@ -41,7 +41,6 @@ export class UserService {
     const [deviceInfo, browserInfo] = requestAgent;
 
     const session = await this.accessRecordModel.db.startSession();
-    session.startTransaction();
 
     return withMutateTransaction(session, async () => {
       const record = new this.accessRecordModel({

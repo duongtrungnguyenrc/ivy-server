@@ -7,3 +7,4 @@ export * from "./category.controller";
 export * from "./order.controller";
 export * from "./cart.controller";
 export * from "./user.controller";
+export * from "./chat.controller";

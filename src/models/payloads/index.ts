@@ -11,3 +11,5 @@ export * from "./create-order.payload";
 export * from "./update-order.payload";
 export * from "./create-category.payload";
 export * from "./update-user.payload";
+export * from "./create-chat-room.payload";
+export * from "./create-message.payload";

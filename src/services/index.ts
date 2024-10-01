@@ -8,3 +8,4 @@ export * from "./collection.service";
 export * from "./collection-group.service";
 export * from "./order.service";
 export * from "./cart.service";
+export * from "./chat.service";

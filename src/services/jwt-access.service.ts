@@ -30,12 +30,16 @@ export class JwtAccessService {
   }
 
   async verifyToken(token: string): Promise<boolean> {
-    const revokeToken = await this.cacheManager.get(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token));
+    try {
+      const revokeToken = await this.cacheManager.get(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token));
 
-    if (revokeToken) return;
+      if (revokeToken) return;
 
-    const verifyResult = this.jwtService.verify(token);
+      const verifyResult = this.jwtService.verify(token);
 
-    return verifyResult;
+      return verifyResult;
+    } catch (error) {
+      return false;
+    }
   }
 }

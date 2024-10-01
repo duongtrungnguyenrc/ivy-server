@@ -1,11 +1,11 @@
-import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CategoryService } from "@app/services";
-import { Category } from "@app/schemas";
 import { CreateCategoryPayload } from "@app/models";
 import { JWTAccessAuthGuard } from "@app/guards";
+import { CategoryService } from "@app/services";
 import { HasRole } from "@app/decorators";
+import { Category } from "@app/schemas";
 
 @Controller("category")
 @ApiTags("category")

@@ -2,10 +2,10 @@ import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateCollectionGroupPayload } from "@app/models";
-import { JWTAccessAuthGuard } from "@app/guards";
 import { CollectionGroupService } from "@app/services";
-import { HasRole } from "@app/decorators";
+import { JWTAccessAuthGuard } from "@app/guards";
 import { CollectionGroup } from "@app/schemas";
+import { HasRole } from "@app/decorators";
 
 @Controller("group")
 @ApiTags("group")

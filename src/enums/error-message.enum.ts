@@ -34,4 +34,9 @@ export enum ErrorMessage {
   // Payment
 
   CREATE_PAYMENT_TRANSACTION_FAILED = "Tạo phiên thanh toán thất bại",
+
+  // Chat
+
+  ROOM_EXISTED = "Phòng chat đã tồn tại",
+  ROOM_NOT_FOUND = "Phòng chat không tồn tại",
 }

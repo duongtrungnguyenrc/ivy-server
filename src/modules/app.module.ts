@@ -13,6 +13,7 @@ import { UserModule } from "./user.module";
 import { CategoryModule } from "./category.module";
 import { OrderModule } from "./order.module";
 import { CartModule } from "./cart.module";
+import { ChatModule } from "./chat.module";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { CartModule } from "./cart.module";
     ProductModule,
     CartModule,
     OrderModule,
+    ChatModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => {
