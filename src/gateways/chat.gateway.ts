@@ -8,15 +8,15 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from "@nestjs/websockets";
+import { Logger, UsePipes, ValidationPipe } from "@nestjs/common";
+
 import { ChatService } from "@app/services";
 import { SocketAuthUid } from "@app/decorators";
-import { SocketJWTAccessAuthGuard } from "@app/guards";
-import { UseGuards, Logger } from "@nestjs/common";
 import { ChatRoom, ChatMessage } from "@app/schemas";
 import { CreateMessagePayload } from "@app/models";
 
-@WebSocketGateway(80, { namespace: "chat" })
-@UseGuards(SocketJWTAccessAuthGuard)
+@WebSocketGateway({ namespace: "chat", crossOriginIsolated: false })
+@UsePipes(ValidationPipe)
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private readonly server: Server;
@@ -42,7 +42,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       this.server.to(room._id).emit("joined", room);
     } catch (error) {
-      this.logger.error(`Error onJoinRoom: ${error.message}`);
       this.server.emit("error", "Could not join the room");
     }
   }
@@ -50,13 +49,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage("send")
   async onSendMessage(@MessageBody() payload: CreateMessagePayload, @SocketAuthUid() userId: string) {
     try {
-      const message: ChatMessage = await this.chatService.createMessage(userId, payload);
+      const createdMessage: ChatMessage = await this.chatService.createMessage(userId, payload);
 
-      this.server.to(payload.roomId).emit("message", message);
-      this.logger.log(`Client ${userId} sent message to room ${payload.roomId}`);
+      this.server.to(payload.roomId).emit("message", createdMessage);
     } catch (error) {
       this.logger.error(`Error onSendMessage: ${error.message}`);
-      this.server.emit("error", "Could not join send message");
+    }
+  }
+
+  @SubscribeMessage("typing")
+  async onTyping(@MessageBody() roomId: string, @SocketAuthUid() userId: string) {
+    try {
+      this.server.to(roomId).emit("typing", userId);
+    } catch (error) {
+      this.server.emit("error", "Could not notify typing event");
+    }
+  }
+
+  @SubscribeMessage("stop-typing")
+  async onStopTyping(@MessageBody() roomId: string, @SocketAuthUid() userId: string) {
+    try {
+      this.server.to(roomId).emit("stop-typing", userId);
+    } catch (error) {
+      this.server.emit("error", "Could not notify stop-typing event");
     }
   }
 }

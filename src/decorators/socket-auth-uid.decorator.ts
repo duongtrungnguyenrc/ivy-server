@@ -7,7 +7,7 @@ import { getTokenFromRequest } from "@app/utils";
 export const SocketAuthUid = createParamDecorator((_, ctx: ExecutionContext): string => {
   const client: Socket = ctx.switchToWs().getClient();
 
-  const authToken: string = getTokenFromRequest(client.handshake);
+  const authToken: string = getTokenFromRequest(client.handshake, true);
 
   if (!authToken) return;
 

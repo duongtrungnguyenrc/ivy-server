@@ -16,12 +16,22 @@ export class ChatService {
     private readonly chatMessageModel: Model<ChatMessage>,
   ) {}
 
-  async loadChatRoom(customerId: string): Promise<ChatRoom> {
+  async loadChatRoom(customerId?: string, roomId?: string): Promise<ChatRoom> {
     const objectUid: Types.ObjectId = new Types.ObjectId(customerId);
+    const objectRid: Types.ObjectId = new Types.ObjectId(roomId);
 
     if (!objectUid) return await this.chatRoomModel.create({});
 
-    const room: ChatRoom = await this.chatRoomModel.findOne({ customer: objectUid });
+    const room: ChatRoom = await this.chatRoomModel.findOne({
+      $or: [
+        {
+          customer: objectUid,
+        },
+        {
+          _id: objectRid,
+        },
+      ],
+    });
 
     if (!room) return await this.chatRoomModel.create({ customer: objectUid });
 
@@ -76,7 +86,7 @@ export class ChatService {
     return withMutateTransaction(session, async () => {
       const createdMessage: ChatMessage = await this.chatMessageModel.create({
         message: payload.message,
-        sender: new Types.ObjectId(senderId),
+        sender: senderId ? new Types.ObjectId(senderId) : undefined,
       });
 
       await this.chatRoomModel.findByIdAndUpdate(payload.roomId, {
@@ -90,11 +100,12 @@ export class ChatService {
   }
 
   async getRoomMessages(roomId: string, pagination: Pagination): Promise<ChatMessage[]> {
+    const room: ChatRoom = await this.chatRoomModel.findById(roomId);
     const skip = (pagination.page - 1) * pagination.limit;
 
     const messages: ChatMessage[] = await this.chatMessageModel
-      .find({ _id: roomId })
-      .sort({ createdAt: -1 })
+      .find({ _id: { $in: room.messages } })
+      .sort({ createdAt: 1 })
       .skip(skip)
       .limit(pagination.limit)
       .lean();
