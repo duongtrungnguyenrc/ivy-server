@@ -20,6 +20,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@keyv/redis": "^3.0.1",
     "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/cache-manager": "^2.2.2",
     "@nestjs/common": "^10.0.0",
@@ -43,6 +44,7 @@
     "date-fns": "^3.6.0",
     "dateformat": "^5.0.3",
     "install": "^0.13.0",
+    "keyv": "^5.0.3",
     "mongoose": "^8.6.0",
     "node-device-detector": "^2.1.4",
     "passport": "^0.7.0",

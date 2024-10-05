@@ -38,7 +38,7 @@ export class AuthService {
     const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {
-      await this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
+      this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
       return cachedTokenPair;
     }
 

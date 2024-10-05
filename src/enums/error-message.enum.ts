@@ -11,6 +11,7 @@ export enum ErrorMessage {
   INVALID_IP_ADDRESS = "Địa chỉ IP không hợp lệ",
   FORBIDDEN = "Bạn không có quyền truy cập tài nguyên này",
   UNAUTHORIZED = "Vui lòng đăng nhập",
+  INVALID_EMAIL = "Email không hợp lệ",
 
   // Product
 

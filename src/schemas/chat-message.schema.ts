@@ -1,13 +1,12 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Types } from "mongoose";
 
 import { BaseSchema } from "./base.schema";
-import { User } from "./user.schema";
+import { Role } from "@app/enums";
 
 @Schema({ timestamps: true })
 export class ChatMessage extends BaseSchema {
-  @Prop({ type: Types.ObjectId, ref: "User", required: false })
-  sender: User;
+  @Prop({ type: String, enum: Role, default: Role.USER })
+  from: Role;
 
   @Prop()
   message: string;

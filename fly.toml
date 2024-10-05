@@ -1,4 +1,4 @@
-# fly.toml app configuration file generated for ivy-server on 2024-09-04T22:41:11+07:00
+# fly.toml app configuration file generated for ivy-server on 2024-10-03T22:42:27+07:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
@@ -11,12 +11,12 @@ primary_region = 'sin'
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = 'off'
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 1
+  min_machines_running = 0
   processes = ['app']
 
 [[vm]]
-  memory = '4gb'
+  memory = '1gb'
   cpu_kind = 'shared'
-  cpus = 4
+  cpus = 1
