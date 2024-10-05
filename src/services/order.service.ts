@@ -16,7 +16,8 @@ import { UserService } from "./user.service";
 import { CartService } from "./cart.service";
 import { Cache } from "@nestjs/cache-manager";
 import { withMutateTransaction } from "@app/utils";
-
+import { RevenueContext, ProfitContext } from "@app/context";
+import { PercentageRevenueCalculator, PercentageProfitCalculator } from "@app/strategies";
 @Injectable()
 export class OrderService {
   constructor(
@@ -208,5 +209,46 @@ export class OrderService {
     });
 
     return sorted;
+  }
+  async calculateRevenue(startDate: Date, endDate: Date) {
+    const orders = await this.orderModel
+      .find()
+      .populate({
+        path: "items",
+        model: "OrderItem",
+        populate: {
+          path: "cost",
+          model: "Cost",
+        },
+      })
+      .exec();
+    // const orderItems = await this.orderItemModel.find().populate("cost").lean();
+    // console.log(orderItems);
+
+    console.log("All Orders:", orders);
+    const filteredOrders = orders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      console.log("createdAt:", createdAt);
+      return createdAt >= startDate && createdAt <= endDate;
+    });
+    console.log("Filtered Orders:", filteredOrders);
+    const revenueContext = new RevenueContext(new PercentageRevenueCalculator());
+    const totalRevenue = revenueContext.calculate(filteredOrders);
+    return totalRevenue;
+  }
+
+  async calculateProfit(startDate: Date, endDate: Date) {
+    const orders = await this.orderModel.find().populate({
+      path: "items",
+      populate: { path: "cost" },
+    });
+    const filteredOrders = orders.filter((order) => {
+      const createdAt = new Date(order.createdAt);
+      return createdAt >= startDate && createdAt <= endDate;
+    });
+    const profitContext = new ProfitContext(new PercentageProfitCalculator());
+    const totalProfit = profitContext.calculate(filteredOrders);
+
+    return totalProfit;
   }
 }

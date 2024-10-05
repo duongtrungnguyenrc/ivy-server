@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put, Query, Req, Res } from "@nestjs/common";
 import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 
@@ -36,5 +36,19 @@ export class OrderController {
   @Get("/payment-callback")
   paymentCallback(@Req() request: Request, @Res() response: Response): Promise<void> {
     return this.orderService.paymentCallback(request, response);
+  }
+  @Get("revenue")
+  async getRevenue(@Query("startDate") startDate: string, @Query("endDate") endDate: string) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    console.log("checkign revenue");
+    return this.orderService.calculateRevenue(start, end);
+  }
+  @Get("profit")
+  async getProfit(@Query("startDate") startDate: string, @Query("endDate") endDate: string) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    console.log("checking");
+    return await this.orderService.calculateProfit(start, end);
   }
 }
