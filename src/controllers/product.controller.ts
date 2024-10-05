@@ -1,10 +1,10 @@
-import { ApiBearerAuth, ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
+import { HasRole, Pagination } from "@app/decorators";
 import { JWTAccessAuthGuard } from "@app/guards";
 import { ProductService } from "@app/services";
-import { HasRole, Pagination } from "@app/decorators";
 import { Product } from "@app/schemas";
 
 @Controller("product")

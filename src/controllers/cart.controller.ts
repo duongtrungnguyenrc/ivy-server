@@ -2,10 +2,10 @@ import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
 
 import { AddCartItemPayload } from "@app/models";
+import { JWTAccessAuthGuard } from "@app/guards";
 import { CartService } from "@app/services";
 import { AuthUid } from "@app/decorators";
 import { Cart } from "@app/schemas";
-import { JWTAccessAuthGuard } from "@app/guards";
 
 @Controller("cart")
 @ApiTags("cart")

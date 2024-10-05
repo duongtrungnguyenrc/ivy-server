@@ -12,3 +12,5 @@ export * from "./order-item.schema";
 export * from "./cart.schema";
 export * from "./cart-item.schema";
 export * from "./access-record.schema";
+export * from "./chat-room.schema";
+export * from "./chat-message.schema";

@@ -71,7 +71,6 @@ export class ProductService {
     const { options, cost, collectionId, ...product } = payload;
 
     const session: ClientSession = await this.productModel.db.startSession();
-    session.startTransaction();
 
     return withMutateTransaction(session, async () => {
       const createdCost = await this.costModel.create([cost], { session });

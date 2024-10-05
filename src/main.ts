@@ -1,9 +1,10 @@
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
+import * as compression from "compression";
 import { NestFactory } from "@nestjs/core";
 
+import { SocketAdapter } from "@app/adapters";
 import { AppModule } from "@app/modules";
-import * as compression from "compression";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,6 +13,7 @@ async function bootstrap() {
   app.setGlobalPrefix("/api");
   app.enableCors();
   app.useGlobalPipes(new ValidationPipe());
+  app.useWebSocketAdapter(new SocketAdapter(app));
 
   const config = new DocumentBuilder()
     .setTitle("Ivy server")

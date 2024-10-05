@@ -1,16 +1,19 @@
 import { ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Reflector } from "@nestjs/core";
-import { decode } from "jsonwebtoken";
 import { Observable } from "rxjs";
 
 import { RoleType } from "@app/decorators";
 import { getTokenFromRequest } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
+import { JwtAccessService } from "@app/services";
 
 @Injectable()
 export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
-  constructor(private reflector: Reflector) {
+  constructor(
+    private reflector: Reflector,
+    private readonly jwtAccessService: JwtAccessService,
+  ) {
     super();
   }
 
@@ -26,7 +29,7 @@ export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
 
     if (!authToken) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
-    const decodedToken: JwtPayload = decode(authToken) as JwtPayload;
+    const decodedToken: JwtPayload = this.jwtAccessService.decodeToken(authToken);
 
     if (!roles || roles.includes("*")) {
       return user;

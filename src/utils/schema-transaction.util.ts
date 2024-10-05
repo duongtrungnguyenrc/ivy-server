@@ -3,6 +3,7 @@ import { ClientSession } from "mongoose";
 
 export async function withMutateTransaction<T>(session: ClientSession, callback: () => Promise<T>): Promise<T> {
   session.startTransaction();
+
   try {
     const result = await callback();
     await session.commitTransaction();

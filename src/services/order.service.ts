@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException } from "@
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
-import { Model } from "mongoose";
+import { ClientSession, Model } from "mongoose";
 import { format } from "date-fns";
 import * as querystring from "qs";
 import * as crypto from "crypto";
@@ -15,6 +15,7 @@ import { ProductService } from "./product.service";
 import { UserService } from "./user.service";
 import { CartService } from "./cart.service";
 import { Cache } from "@nestjs/cache-manager";
+import { withMutateTransaction } from "@app/utils";
 
 @Injectable()
 export class OrderService {
@@ -39,71 +40,80 @@ export class OrderService {
   }
 
   async createOrder(payload: CreateOrderPayload, userId: string, ipAddress: string, res: Response): Promise<Order> {
-    const { items, ...order } = payload;
+    const session: ClientSession = await this.orderModel.db.startSession();
 
-    const createdItems: OrderItem[] = await Promise.all(
-      items.map(async ({ productId, optionId, quantity }) => {
-        const product: Product = await this.productService.findProductById(productId, ["options"]);
-        const option: Option = product.options.find(({ _id }) => _id == optionId);
+    return withMutateTransaction(session, async () => {
+      const { items, ...order } = payload;
 
-        if (!product || product.isDeleted) {
-          throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
-        }
+      const createdItems: OrderItem[] = await Promise.all(
+        items.map(async ({ productId, optionId, quantity }) => {
+          const product: Product = await this.productService.findProductById(productId, ["options"]);
+          const option: Option = product.options.find(({ _id }) => _id == optionId);
 
-        if (!option) {
-          throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
-        }
+          if (!product || product.isDeleted) {
+            throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
+          }
 
-        if (option.stock <= 0 || option.stock < quantity) {
-          throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
-        }
+          if (!option) {
+            throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
+          }
 
-        this.productService.updateProductOptionById(optionId, {
-          stock: option.stock - quantity,
-        });
+          if (option.stock <= 0 || option.stock < quantity) {
+            throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
+          }
 
-        return (
-          await this.orderItemModel.create({
-            product: product,
-            cost: product.currentCost,
-            option: option,
-            quantity,
-          })
-        ).populate("cost");
-      }),
-    );
+          this.productService.updateProductOptionById(optionId, {
+            stock: option.stock - quantity,
+          });
 
-    const user: User = await this.userServide.findOneUser({ _id: userId });
+          const createdItem = await this.orderItemModel.create(
+            [
+              {
+                product: product,
+                cost: product.currentCost,
+                option: option,
+                quantity,
+              },
+            ],
+            { session },
+          );
 
-    const totalCost: number = createdItems.reduce((prev, current) => {
-      const { saleCost, discountPercentage } = current.cost;
-
-      const discountCost = (saleCost * discountPercentage) / 100;
-
-      return (saleCost - discountCost) * current.quantity + prev;
-    }, 0);
-
-    const createdOrder: Order = await this.orderModel.create({
-      ...order,
-      items: createdItems,
-      user: user,
-    });
-
-    if (order.paymentMethod === PaymentMethod.VNPAY) {
-      const paymentUrl: string = await this.createPaymentUrl(
-        totalCost,
-        createdOrder._id,
-        VNPAY_FASHION_PRODUCT_TYPE,
-        `Đơn hàng Ivy cho ${createdOrder.name}`,
-        ipAddress,
+          return await createdItem[0].populate("cost");
+        }),
       );
 
-      res.redirect(paymentUrl);
-      return;
-    }
+      const user: User = await this.userServide.findOneUser({ _id: userId });
 
-    res.json(createdOrder);
-    return createdOrder;
+      const totalCost: number = createdItems.reduce((prev, current) => {
+        const { saleCost, discountPercentage } = current.cost;
+
+        const discountCost = (saleCost * discountPercentage) / 100;
+
+        return (saleCost - discountCost) * current.quantity + prev;
+      }, 0);
+
+      const createdOrder: Order = await this.orderModel.create({
+        ...order,
+        items: createdItems,
+        user: user,
+      });
+
+      if (order.paymentMethod === PaymentMethod.VNPAY) {
+        const paymentUrl: string = await this.createPaymentUrl(
+          totalCost,
+          createdOrder._id,
+          VNPAY_FASHION_PRODUCT_TYPE,
+          `Đơn hàng Ivy cho ${createdOrder.name}`,
+          ipAddress,
+        );
+
+        res.redirect(paymentUrl);
+        return;
+      }
+
+      res.json(createdOrder);
+      return createdOrder;
+    });
   }
 
   async paymentCallback(request: Request, response: Response): Promise<void> {
