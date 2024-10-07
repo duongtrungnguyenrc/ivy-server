@@ -10,11 +10,11 @@ import { CollectionModule } from "./collection.module";
 import { CategoryModule } from "./category.module";
 import { TestController } from "@app/controllers";
 import { ProductModule } from "./product.module";
+import { ContactModule } from "./chat.module";
 import { OrderModule } from "./order.module";
 import { AuthModule } from "./auth.module";
 import { UserModule } from "./user.module";
 import { CartModule } from "./cart.module";
-import { ChatModule } from "./chat.module";
 
 @Module({
   imports: [
@@ -26,7 +26,7 @@ import { ChatModule } from "./chat.module";
     ProductModule,
     CartModule,
     OrderModule,
-    ChatModule,
+    ContactModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => {

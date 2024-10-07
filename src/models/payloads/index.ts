@@ -15,3 +15,4 @@ export * from "./create-chat-room.payload";
 export * from "./create-message.payload";
 export * from "./load-room-query.payload";
 export * from "./chat-typing.payload";
+export * from "./send-email.payload";

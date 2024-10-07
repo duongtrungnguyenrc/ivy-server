@@ -1,10 +1,9 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateCollectionPayload } from "@app/models";
 import { CollectionService } from "@app/services";
-import { JWTAccessAuthGuard } from "@app/guards";
-import { HasRole } from "@app/decorators";
+import { Auth } from "@app/decorators";
 import { Collection } from "@app/schemas";
 
 @Controller("collection")
@@ -13,9 +12,7 @@ export class CollectionController {
   constructor(private readonly collectionService: CollectionService) {}
 
   @Post("/")
-  @UseGuards(JWTAccessAuthGuard)
-  @HasRole("ADMIN")
-  @ApiBearerAuth()
+  @Auth(["ADMIN"])
   @ApiBody({ type: CreateCollectionPayload })
   @ApiResponse({ type: Collection })
   createCollection(@Body() payload: CreateCollectionPayload): Promise<Collection> {

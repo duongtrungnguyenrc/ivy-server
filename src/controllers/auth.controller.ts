@@ -1,9 +1,9 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiBody, ApiTags } from "@nestjs/swagger";
+import { ApiBody, ApiTags } from "@nestjs/swagger";
 
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
-import { JWTAccessAuthGuard, JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
-import { AuthToken, AuthUid, IpAddress, RequestAgent } from "@app/decorators";
+import { Auth, AuthToken, AuthUid, IpAddress, RequestAgent } from "@app/decorators";
+import { JWTRefreshAuthGuard, LocalAuthGuard } from "@app/guards";
 import { AuthService } from "@app/services";
 import { User } from "@app/schemas";
 
@@ -35,15 +35,13 @@ export class AuthController {
   }
 
   @Post("sign-out")
-  @UseGuards(JWTAccessAuthGuard)
-  @ApiBearerAuth()
+  @Auth()
   async signOut(@AuthUid() userId: string): Promise<void> {
     return await this.authService.signOut(userId);
   }
 
   @Post("refresh-token")
-  @UseGuards(JWTRefreshAuthGuard)
-  @ApiBearerAuth()
+  @Auth(["*"], JWTRefreshAuthGuard)
   async refreshToken(
     @AuthToken() refreshToken: string,
     @RequestAgent() requestAgent: [string, string],

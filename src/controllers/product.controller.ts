@@ -1,9 +1,8 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
-import { HasRole, Pagination } from "@app/decorators";
-import { JWTAccessAuthGuard } from "@app/guards";
+import { Auth, Pagination } from "@app/decorators";
 import { ProductService } from "@app/services";
 import { Product } from "@app/schemas";
 
@@ -31,9 +30,7 @@ export class ProductController {
   }
 
   @Post("/")
-  @UseGuards(JWTAccessAuthGuard)
-  @HasRole("ADMIN")
-  @ApiBearerAuth()
+  @Auth(["ADMIN"])
   @ApiBody({ type: CreateProductPayload })
   @ApiResponse({ type: Product })
   async createProduct(@Body() payload: CreateProductPayload): Promise<Product> {
@@ -41,9 +38,7 @@ export class ProductController {
   }
 
   @Put("/:id")
-  @UseGuards(JWTAccessAuthGuard)
-  @HasRole("ADMIN")
-  @ApiBearerAuth()
+  @Auth(["ADMIN"])
   @ApiParam({ type: String, name: "id" })
   @ApiBody({ type: UpdateProductPayload })
   @ApiResponse({ type: Product })
@@ -52,9 +47,7 @@ export class ProductController {
   }
 
   @Delete("/:id")
-  @UseGuards(JWTAccessAuthGuard)
-  @HasRole("ADMIN")
-  @ApiBearerAuth()
+  @Auth(["ADMIN"])
   @ApiParam({ type: String, name: "id" })
   deleteProduct(@Param("id") id: string): Promise<void> {
     return this.productService.deleteProduct(id);

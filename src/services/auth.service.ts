@@ -7,8 +7,8 @@ import { compare } from "bcrypt";
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
 import { JwtAccessService, JwtRefreshService, UserService } from ".";
+import { ErrorMessage, MailSubject } from "@app/enums";
 import { joinCacheKey } from "@app/utils";
-import { ErrorMessage } from "@app/enums";
 import { User } from "@app/schemas";
 
 @Injectable()
@@ -58,7 +58,7 @@ export class AuthService {
 
     this.mailService.sendMail({
       to: createdUser.email,
-      subject: "Chào mừng đến với IVY fashion",
+      subject: MailSubject.REGISTER,
       template: "register",
       context: { user: `${createdUser.lastName} ${createdUser.firstName} ` },
     });
@@ -82,7 +82,7 @@ export class AuthService {
 
     await this.mailService.sendMail({
       to: user.email,
-      subject: "Password Recovery",
+      subject: MailSubject.RESET_PASSWORD,
       template: "forgot-password",
       context: { user: `${user.lastName} ${user.firstName}`, otpCode },
     });

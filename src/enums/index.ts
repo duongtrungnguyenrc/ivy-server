@@ -6,3 +6,4 @@ export * from "./order-status.enum";
 export * from "./vnpay-transaction-status";
 export * from "./error-message.enum";
 export * from "./chat-event.enum";
+export * from "./mail-subject.enum";

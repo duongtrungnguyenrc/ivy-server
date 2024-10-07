@@ -118,7 +118,7 @@ export class OrderService {
 
   async paymentCallback(request: Request, response: Response): Promise<void> {
     const { vnp_TransactionStatus, vnp_TxnRef: orderId } = request.query;
-    const clientBaseUrl: string = this.configService.get<string>("CLIENT_BASE_URL");
+    const clientBaseUrl: string = this.configService.get<string>("CLIENT_PROD_URL");
     const returnRoute = `${clientBaseUrl}/order/result`;
 
     if (vnp_TransactionStatus === VnpayTransactionStatus.SUCCESS) {

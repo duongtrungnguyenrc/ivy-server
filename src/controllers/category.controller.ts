@@ -1,11 +1,10 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post } from "@nestjs/common";
 import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateCategoryPayload } from "@app/models";
-import { JWTAccessAuthGuard } from "@app/guards";
 import { CategoryService } from "@app/services";
-import { HasRole } from "@app/decorators";
 import { Category } from "@app/schemas";
+import { Auth } from "@app/decorators";
 
 @Controller("category")
 @ApiTags("category")
@@ -21,8 +20,7 @@ export class CategoryController {
   }
 
   @Post("/")
-  @UseGuards(JWTAccessAuthGuard)
-  @HasRole("ADMIN")
+  @Auth(["ADMIN"])
   @ApiBody({ type: CreateCategoryPayload })
   @ApiResponse({ type: Category })
   createCategory(@Body() payload: CreateCategoryPayload): Promise<Category> {

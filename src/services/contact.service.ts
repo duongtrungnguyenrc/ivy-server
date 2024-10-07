@@ -3,20 +3,30 @@ import { ClientSession, Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
 import { ChatMessage, ChatRoom } from "@app/schemas";
-import { CreateMessagePayload } from "@app/models";
+import { CreateMessagePayload, SendEmailPayload } from "@app/models";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
+import { MailerService } from "@nestjs-modules/mailer";
 
 @Injectable()
-export class ChatService {
+export class ContactService {
   constructor(
     @InjectModel(ChatRoom.name)
     private readonly chatRoomModel: Model<ChatRoom>,
     @InjectModel(ChatMessage.name)
     private readonly chatMessageModel: Model<ChatMessage>,
+    private readonly mailerService: MailerService,
   ) {}
 
-  async loadChatRoom(email: string): Promise<ChatRoom> {
+  async sendEmail(payload: SendEmailPayload): Promise<void> {
+    this.mailerService.sendMail({
+      to: payload.email,
+      subject: payload.subject,
+      html: payload.content,
+    });
+  }
+
+  async getOrCreateRoom(email: string): Promise<ChatRoom> {
     const room: ChatRoom = await this.chatRoomModel.findOne({
       email,
     });
@@ -40,8 +50,9 @@ export class ChatService {
     return room;
   }
 
-  async getChatRooms(pagination: Pagination): Promise<ChatRoom[]> {
-    const skip = (pagination.page - 1) * pagination.limit;
+  async getChatRooms(pagination: Pagination): Promise<InfiniteResponse<ChatRoom>> {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
 
     const rooms: ChatRoom[] = await this.chatRoomModel
       .find({ messages: { $ne: [] } })
@@ -49,12 +60,21 @@ export class ChatService {
         path: "messages",
         options: { sort: { createdAt: -1 }, limit: 1 },
       })
-      .sort({ createdAt: 1 })
       .skip(skip)
-      .limit(pagination.limit)
+      .limit(limit)
       .lean();
 
-    return rooms;
+    const totalRooms: number = await this.chatRoomModel.countDocuments();
+    const pages: number = totalRooms / limit;
+
+    const nextCursor: number = page < pages ? page + 1 : undefined;
+
+    const response: InfiniteResponse<ChatRoom> = {
+      nextCursor,
+      data: rooms,
+    };
+
+    return response;
   }
 
   async createMessage(payload: CreateMessagePayload): Promise<ChatMessage> {
@@ -83,27 +103,38 @@ export class ChatService {
           },
         )
         .catch((error) => {
-          console.error("Failed to add message to chat room:", error);
+          console.error("Failed to add message to contact room:", error);
         });
 
       return createdMessage;
     });
   }
 
-  async getRoomMessages(email: string, pagination: Pagination): Promise<ChatMessage[]> {
+  async getRoomMessages(email: string, pagination: Pagination): Promise<InfiniteResponse<ChatMessage>> {
+    const { page, limit } = pagination;
     const room: ChatRoom = await this.chatRoomModel.findOne({ email }).lean();
 
     if (!room) throw new BadRequestException(ErrorMessage.ROOM_NOT_FOUND);
 
-    const skip = room.messages.length - pagination.page * pagination.limit;
+    const skip = room.messages.length - page * limit;
 
     const messages: ChatMessage[] = await this.chatMessageModel
       .find({ _id: { $in: room.messages } })
       .sort({ createdAt: 1 })
       .skip(skip >= 0 ? skip : 0)
-      .limit(pagination.limit)
+      .limit(limit)
       .lean();
 
-    return messages;
+    const totalRooms: number = await this.chatMessageModel.countDocuments({ _id: { $in: room.messages } });
+    const pages: number = Math.floor(totalRooms / limit);
+
+    const nextCursor: number = page < pages ? page + 1 : undefined;
+
+    const response: InfiniteResponse<ChatMessage> = {
+      nextCursor,
+      data: messages,
+    };
+
+    return response;
   }
 }
