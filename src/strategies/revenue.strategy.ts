@@ -1,4 +1,3 @@
-import { log } from "console";
 import { RevenueCalculator } from "../interface";
 import { Order } from "@app/schemas";
 
@@ -8,14 +7,14 @@ export class PercentageRevenueCalculator implements RevenueCalculator {
 
     orders.forEach((order) => {
       order.items.forEach((item) => {
-        console.log("hello",item);
+        console.log("hello", item);
         // Giả sử `item.cost` có cấu trúc như sau:
         // { saleCost: number; discountPercentage: number; }
         const cost = item.cost;
-        console.log("toi la Cost",cost);
+        console.log("toi la Cost", cost);
         const saleCost = item.cost.saleCost; // Lấy giá bán
         const discountPercentage = item.cost.discountPercentage; // Lấy phần trăm giảm giá
-        console.log("toi la saleCost",saleCost);
+        console.log("toi la saleCost", saleCost);
         const quantity = item.quantity; // Số lượng của sản phẩm
 
         // Tính doanh thu cho từng sản phẩm
