@@ -2,20 +2,19 @@ import { BadRequestException, Injectable, InternalServerErrorException } from "@
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
-import { ClientSession, Model } from "mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import { format } from "date-fns";
 import * as querystring from "qs";
 import * as crypto from "crypto";
 
 import { ErrorMessage, OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
-import { Option, Order, OrderItem, Product, User } from "@app/schemas";
+import { Option, Order, OrderItem, Product } from "@app/schemas";
 import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
 import { ProductService } from "./product.service";
-import { UserService } from "./user.service";
-import { CartService } from "./cart.service";
-import { Cache } from "@nestjs/cache-manager";
 import { withMutateTransaction } from "@app/utils";
+import { Cache } from "@nestjs/cache-manager";
+import { CartService } from "./cart.service";
 
 @Injectable()
 export class OrderService {
@@ -27,7 +26,6 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly productService: ProductService,
     private readonly configService: ConfigService,
-    private readonly userServide: UserService,
     private readonly cacheManage: Cache,
   ) {}
 
@@ -82,8 +80,6 @@ export class OrderService {
         }),
       );
 
-      const user: User = await this.userServide.findOneUser({ _id: userId });
-
       const totalCost: number = createdItems.reduce((prev, current) => {
         const { saleCost, discountPercentage } = current.cost;
 
@@ -95,7 +91,7 @@ export class OrderService {
       const createdOrder: Order = await this.orderModel.create({
         ...order,
         items: createdItems,
-        user: user,
+        user: new Types.ObjectId(userId),
       });
 
       if (order.paymentMethod === PaymentMethod.VNPAY) {

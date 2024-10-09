@@ -1,9 +1,10 @@
 import { Body, Controller, Get, Put } from "@nestjs/common";
+import { Auth, AuthUid, Pagination } from "@app/decorators";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { Auth, AuthUid, Pagination } from "@app/decorators";
+import { PaginationResponse, UpdateUserPayload } from "@app/models";
 import { AccessRecord, User } from "@app/schemas";
-import { UpdateUserPayload } from "@app/models";
+import { UserMessages } from "@app/enums";
 import { UserService } from "@app/services";
 
 @Controller("user")
@@ -11,24 +12,25 @@ import { UserService } from "@app/services";
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Auth()
-  @ApiResponse({ type: User })
   @Get("/auth")
-  getAuthUser(@AuthUid() userId: string): Promise<User> {
-    return this.userService.getAuthUser(userId);
+  @Auth()
+  @ApiResponse({ description: UserMessages.GET_AUTH_USER_SUCCESS, type: User })
+  async getAuthUser(@AuthUid() userId: string): Promise<User> {
+    return await this.userService.getAuthUser(userId);
   }
 
-  @Auth()
-  @ApiResponse({ type: User })
   @Put("/")
-  updateUser(@Body() payload: UpdateUserPayload, @AuthUid() userId: string): Promise<User> {
-    return this.userService.updateUser(payload, userId);
+  @ApiResponse({ description: UserMessages.UPDATE_USER_SUCCESS, type: User })
+  async updateUser(@Body() payload: UpdateUserPayload, @AuthUid() userId: string): Promise<User> {
+    return await this.userService.updateUser(payload, userId);
   }
 
-  @Auth()
   @Get("/access")
-  @ApiResponse({ type: [AccessRecord] })
-  getAccessHistory(@AuthUid() userId: string, @Pagination() pagination: Pagination) {
-    return this.userService.getAccessHistory(userId, pagination);
+  @ApiResponse({ description: UserMessages.GET_ACCESS_HISTORY_SUCCESS, type: [AccessRecord] })
+  async getAccessHistory(
+    @AuthUid() userId: string,
+    @Pagination() pagination: Pagination,
+  ): Promise<PaginationResponse<AccessRecord>> {
+    return await this.userService.getAccessHistory(userId, pagination);
   }
 }

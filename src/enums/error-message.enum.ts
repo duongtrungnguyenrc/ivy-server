@@ -42,4 +42,8 @@ export enum ErrorMessage {
   ROOM_NOT_FOUND = "Phòng contact không tồn tại",
   COULD_NOT_SEND_MESSAGE = "Không thể gửi tin nhắn",
   COULD_NOT_JOIN_ROOM = "Không thể tham gia phòng contact",
+
+  // Rating
+
+  REQUIRE_PURCHASE = "Bạn phải mua hàng mới có thể đánh giá sản phẩm",
 }

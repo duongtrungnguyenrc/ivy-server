@@ -4,7 +4,7 @@ import { Model, FilterQuery, Types } from "mongoose";
 import { Cache } from "@nestjs/cache-manager";
 import { genSalt, hash } from "bcrypt";
 
-import { GetAccessHistoryResponse, UpdateUserPayload } from "@app/models";
+import { PaginationResponse, UpdateUserPayload } from "@app/models";
 import { joinCacheKey, withMutateTransaction } from "@app/utils";
 import { USER_CACHE_PREFIX } from "@app/constants";
 import { AccessRecord, User } from "@app/schemas";
@@ -54,7 +54,7 @@ export class UserService {
     });
   }
 
-  async getAccessHistory(userId: string, { page, limit }: Pagination): Promise<GetAccessHistoryResponse> {
+  async getAccessHistory(userId: string, { page, limit }: Pagination): Promise<PaginationResponse<AccessRecord>> {
     const recordsQuantity = await this.accessRecordModel.countDocuments({ user: new Types.ObjectId(userId) }).lean();
 
     const totalPages = Math.ceil(recordsQuantity / limit);
@@ -66,8 +66,8 @@ export class UserService {
       .sort({ createdAt: -1 })
       .lean();
 
-    const responseData: GetAccessHistoryResponse = {
-      accessRecords: records.map((record) => {
+    const responseData: PaginationResponse<AccessRecord> = {
+      data: records.map((record) => {
         const parsedCreatedTime = new Date(record.createdAt);
 
         const time = `${parsedCreatedTime.toLocaleTimeString("vi-vn")} ${parsedCreatedTime.toLocaleDateString("vi-vn")}`;
@@ -77,9 +77,11 @@ export class UserService {
           createdAt: time,
         };
       }),
-      page: page,
-      limit: limit,
-      totalPages: totalPages,
+      meta: {
+        page: page,
+        limit: limit,
+        pages: totalPages,
+      },
     };
 
     return responseData;

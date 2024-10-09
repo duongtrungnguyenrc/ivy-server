@@ -10,13 +10,13 @@ import {
   WebSocketServer,
 } from "@nestjs/websockets";
 
-import { ChatTypingPayload, CreateMessagePayload } from "@app/models";
 import { ChatEvent, ErrorMessage, MailSubject, Role } from "@app/enums";
-import { JWTSocketAuthGuard } from "@app/guards";
+import { ChatTypingPayload, CreateMessagePayload } from "@app/models";
+import { MailerService } from "@nestjs-modules/mailer";
 import { CHAT_ADMIN_ROOM_ID } from "@app/constants";
+import { JWTSocketAuthGuard } from "@app/guards";
 import { ContactService } from "@app/services";
 import { ChatMessage } from "@app/schemas";
-import { MailerService } from "@nestjs-modules/mailer";
 import { Auth } from "@app/decorators";
 
 @WebSocketGateway({ namespace: "chat" })
@@ -43,6 +43,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @Auth(["ADMIN"], JWTSocketAuthGuard)
   async onJoinAdminRoom(@ConnectedSocket() client: Socket) {
     await client.join(CHAT_ADMIN_ROOM_ID);
+    this.logger.log(`Client ${client.id} joined admin room`);
   }
 
   @SubscribeMessage(ChatEvent.JOIN)
@@ -68,10 +69,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async onSendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: CreateMessagePayload) {
     try {
       const isClientInAdminRoom = await this.isClientInAdminRoom(client.id);
-
-      if (payload.from === Role.ADMIN && !isClientInAdminRoom) return;
-
       const role = isClientInAdminRoom ? Role.ADMIN : Role.USER;
+
+      if (role === Role.ADMIN && !isClientInAdminRoom) {
+        this.logger.error(`${ErrorMessage.COULD_NOT_SEND_MESSAGE}`);
+        return;
+      }
+
       const createdMessage = await this.contactService.createMessage({ ...payload, from: role });
 
       this.broadcastMessage(payload.email, createdMessage, role);

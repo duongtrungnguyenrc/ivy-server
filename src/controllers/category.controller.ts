@@ -5,6 +5,7 @@ import { CreateCategoryPayload } from "@app/models";
 import { CategoryService } from "@app/services";
 import { Category } from "@app/schemas";
 import { Auth } from "@app/decorators";
+import { CategoryMessages } from "@app/enums";
 
 @Controller("category")
 @ApiTags("category")
@@ -12,9 +13,7 @@ export class CategoryController {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Get("/")
-  @ApiResponse({
-    type: [Category],
-  })
+  @ApiResponse({ description: CategoryMessages.GET_CATEGORIES_SUCCESS, type: [Category] })
   getCategories(): Promise<Category[]> {
     return this.categoryService.getCategories();
   }
@@ -22,7 +21,7 @@ export class CategoryController {
   @Post("/")
   @Auth(["ADMIN"])
   @ApiBody({ type: CreateCategoryPayload })
-  @ApiResponse({ type: Category })
+  @ApiResponse({ description: CategoryMessages.CREATE_CATEGORY_SUCCESS, type: Category })
   createCategory(@Body() payload: CreateCategoryPayload): Promise<Category> {
     return this.categoryService.createCategory(payload);
   }

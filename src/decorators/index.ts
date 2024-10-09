@@ -4,3 +4,5 @@ export * from "./auth-token.decorator";
 export * from "./request-agent.decorator";
 export * from "./pagination.decorator";
 export * from "./auth.decorator";
+export * from "./message-query.decorator";
+export * from "./socket-auth-uid.decorator";

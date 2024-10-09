@@ -3,7 +3,7 @@ import { ClientSession, Model, Types, UpdateQuery } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
-import { CreateProductPayload, GetProductsByCollectionResponse, UpdateProductPayload } from "@app/models";
+import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
 import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
@@ -35,7 +35,7 @@ export class ProductService {
     return product;
   }
 
-  async getProductsByCollection(id: string, pagination: Pagination): Promise<GetProductsByCollectionResponse> {
+  async getProductsByCollection(id: string, pagination: Pagination): Promise<PaginationResponse<Product>> {
     const { page, limit } = pagination;
 
     const collection: Collection = await this.collectionService.findCollectionById(id, [], true);
@@ -57,11 +57,13 @@ export class ProductService {
       .populate(["currentCost", "options"])
       .exec();
 
-    const responseData: GetProductsByCollectionResponse = {
-      products: products,
-      page: page,
-      limit: limit,
-      totalPages: totalPages,
+    const responseData: PaginationResponse<Product> = {
+      data: products,
+      meta: {
+        page: page,
+        limit: limit,
+        pages: totalPages,
+      },
     };
 
     return responseData;

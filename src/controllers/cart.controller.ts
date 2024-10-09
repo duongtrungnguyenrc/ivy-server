@@ -5,6 +5,7 @@ import { AddCartItemPayload } from "@app/models";
 import { Auth, AuthUid } from "@app/decorators";
 import { CartService } from "@app/services";
 import { Cart } from "@app/schemas";
+import { CartMessages } from "@app/enums";
 
 @Controller("cart")
 @ApiTags("cart")
@@ -13,14 +14,14 @@ export class CartController {
 
   @Post("/")
   @ApiBody({ type: AddCartItemPayload })
-  @ApiResponse({ type: Cart })
+  @ApiResponse({ description: CartMessages.ADD_CART_ITEM_SUCCESS, type: Cart })
   async addCartItem(@Body() payload: AddCartItemPayload, @AuthUid() userId: string): Promise<Cart> {
     return await this.cartService.addCartItem(payload, userId);
   }
 
   @Get("/")
   @Auth()
-  @ApiResponse({ type: Cart })
+  @ApiResponse({ description: CartMessages.GET_USER_CART_SUCCESS, type: Cart })
   async getUserCart(@AuthUid() userId: string): Promise<Cart> {
     return await this.cartService.getOrCreateCart(userId);
   }

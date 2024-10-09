@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 
-import { LoadChatRoomQuery, SendEmailPayload } from "@app/models";
+import { InfiniteResponse, LoadChatRoomQuery, SendEmailPayload } from "@app/models";
 import { ChatMessage, ChatRoom } from "@app/schemas";
 import { Auth, Pagination } from "@app/decorators";
 import { ContactService } from "@app/services";

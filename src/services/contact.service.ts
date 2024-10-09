@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
+import { MailerService } from "@nestjs-modules/mailer";
 import { ClientSession, Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
 import { ChatMessage, ChatRoom } from "@app/schemas";
-import { CreateMessagePayload, SendEmailPayload } from "@app/models";
+import { CreateMessagePayload, InfiniteResponse, SendEmailPayload } from "@app/models";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
-import { MailerService } from "@nestjs-modules/mailer";
 
 @Injectable()
 export class ContactService {

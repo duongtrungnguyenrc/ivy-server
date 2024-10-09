@@ -23,18 +23,3 @@ declare type Pagination = {
   page: number;
   limit: number;
 };
-
-declare type PaginationResponse<T> = {
-  meta: {
-    pages: number;
-    page: number;
-    limit: number;
-  };
-
-  data: Array<T>;
-};
-
-declare type InfiniteResponse<T> = {
-  nextCursor?: number;
-  data: Array<T>;
-};

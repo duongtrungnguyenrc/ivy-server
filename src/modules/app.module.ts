@@ -10,6 +10,7 @@ import { CollectionModule } from "./collection.module";
 import { CategoryModule } from "./category.module";
 import { TestController } from "@app/controllers";
 import { ProductModule } from "./product.module";
+import { RatingModule } from "./rating.module";
 import { ContactModule } from "./chat.module";
 import { OrderModule } from "./order.module";
 import { AuthModule } from "./auth.module";
@@ -27,6 +28,7 @@ import { CartModule } from "./cart.module";
     CartModule,
     OrderModule,
     ContactModule,
+    RatingModule,
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
     CacheModule.registerAsync({
       useFactory: (configService: ConfigService) => {

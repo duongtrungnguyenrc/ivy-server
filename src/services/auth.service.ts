@@ -109,6 +109,7 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { exp: _, iat: __, ...tokenPayload }: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
 
     this.revokeTokenPair(tokenPayload.userId);
