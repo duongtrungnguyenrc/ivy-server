@@ -28,6 +28,10 @@ export enum ErrorMessage {
 
   COLLECTION_NOT_FOUND = "Bộ sưu tập không tồn tại",
 
+  // Category
+
+  CATEGORY_NOT_FOUND = "Thể loại không tồn tại",
+
   // Order
 
   ORDER_NOT_FOUND = "Đơn hàng không tồn tại",

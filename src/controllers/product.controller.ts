@@ -12,6 +12,12 @@ import { Product } from "@app/schemas";
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
+  @Get("/all")
+  @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
+  getAllProducts(@Pagination() pagination: Pagination): Promise<PaginationResponse<Product>> {
+    return this.productService.getAllProduct(pagination);
+  }
+
   @Get("/:id")
   @ApiParam({ type: String, name: "id", description: ProductMessages.PRODUCT_ID })
   @ApiResponse({ type: Product })

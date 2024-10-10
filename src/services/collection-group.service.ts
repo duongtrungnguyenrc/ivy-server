@@ -2,10 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { FilterQuery, Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
-import { CreateCollectionGroupPayload } from "@app/models";
+import { CreateCollectionGroupPayload, PaginationResponse, UpdateCollectionGroupPayload } from "@app/models";
 import { Collection, CollectionGroup } from "@app/schemas";
 import { CategoryService } from "./category.service";
 import { ErrorMessage } from "@app/enums";
+import { NOT_DELETED_FILTER } from "@app/constants";
 
 @Injectable()
 export class CollectionGroupService {
@@ -13,13 +14,14 @@ export class CollectionGroupService {
     @InjectModel(CollectionGroup.name)
     private readonly collectionGroupModel: Model<CollectionGroup>,
     private readonly categoryService: CategoryService,
-  ) {}
+  ) { }
 
   async createCollectionGroup(payload: CreateCollectionGroupPayload): Promise<CollectionGroup> {
     const { categoryId, ...collection } = payload;
 
     const createdCollectionGroup: CollectionGroup = await this.collectionGroupModel.create({
       ...collection,
+      collections: collection.collections.map((id) => new Types.ObjectId(id)),
     });
 
     this.categoryService.addGroup(categoryId, createdCollectionGroup);
@@ -27,8 +29,8 @@ export class CollectionGroupService {
     return createdCollectionGroup;
   }
 
-  async updateCollectionGroup(updates: Partial<CollectionGroup>): Promise<CollectionGroup> {
-    const { _id, collections } = updates;
+  async updateCollectionGroup(updates: UpdateCollectionGroupPayload): Promise<CollectionGroup> {
+    const { _id, ...group } = updates;
 
     if (!_id) {
       throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_REQUIRED);
@@ -37,7 +39,8 @@ export class CollectionGroupService {
     const updatedCollectionGroup: CollectionGroup = await this.collectionGroupModel.findByIdAndUpdate(
       _id,
       {
-        $push: { collections: { $each: collections.map(({ _id }) => new Types.ObjectId(_id)) } },
+        ...group,
+        collections: group.collections.map((id) => new Types.ObjectId(id)),
       },
       { new: true },
     );
@@ -49,8 +52,41 @@ export class CollectionGroupService {
     return updatedCollectionGroup;
   }
 
-  async getCollectionGroups(): Promise<CollectionGroup[]> {
-    const groups: CollectionGroup[] = await this.collectionGroupModel.find().populate("collections");
+  async deleteCollectionGroup(id: string): Promise<void> {
+    const deletedGroup = await this.collectionGroupModel.findByIdAndUpdate(id, { isDeleted: true });
+
+    if (!deletedGroup) throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_NOT_FOUND);
+  }
+
+  async getCollectionGroups(page?: number, limit?: number): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
+    const baseQuery = this.collectionGroupModel
+      .find(NOT_DELETED_FILTER)
+      .populate({
+        path: "collections",
+        match: NOT_DELETED_FILTER,
+      })
+      .sort({ createdAt: -1 });
+
+    if (page) {
+      const limited = limit || 10;
+      const skip = (page - 1) * limited;
+
+      const [paginatedGroups, totalDocs] = await Promise.all([
+        baseQuery.skip(skip).limit(limited).exec(),
+        this.collectionGroupModel.countDocuments(NOT_DELETED_FILTER).exec(),
+      ]);
+
+      return {
+        meta: {
+          page: Number(page),
+          limit: Number(limited),
+          pages: Math.ceil(totalDocs / limited),
+        },
+        data: paginatedGroups,
+      };
+    }
+
+    const groups = await baseQuery;
 
     return groups;
   }

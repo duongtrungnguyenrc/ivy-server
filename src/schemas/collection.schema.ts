@@ -12,6 +12,9 @@ export class Collection extends BaseSchema {
   @Prop({ type: [{ type: Types.ObjectId }], ref: "Product", default: [] })
   products: Product[];
 
+  @Prop({ type: Boolean, default: false })
+  isDeleted: boolean;
+
   @Prop({ type: Date })
   createdAt: Date;
 

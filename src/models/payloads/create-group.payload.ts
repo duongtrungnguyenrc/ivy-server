@@ -1,4 +1,4 @@
-import { IsBoolean, IsMongoId, IsOptional } from "class-validator";
+import { IsArray, IsBoolean, IsMongoId, IsOptional } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateCollectionGroupPayload {
@@ -12,4 +12,8 @@ export class CreateCollectionGroupPayload {
 
   @ApiProperty()
   name: string;
+
+  @ApiProperty({ type: Array })
+  @IsArray()
+  collections: string[];
 }

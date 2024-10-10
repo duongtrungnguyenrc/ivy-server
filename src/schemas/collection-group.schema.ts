@@ -15,6 +15,9 @@ export class CollectionGroup extends BaseSchema {
   @Prop({ type: [{ type: mongoose.Types.ObjectId }], ref: "Collection", default: [] })
   collections: Collection[];
 
+  @Prop({ default: false })
+  isDeleted: boolean;
+
   @Prop({ type: Date })
   createdAt: Date;
 

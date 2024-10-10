@@ -18,6 +18,9 @@ export class Category extends BaseSchema {
   @Prop({ type: Date })
   createdAt: Date;
 
+  @Prop({ default: false })
+  isDeleted: boolean;
+
   @Prop({ type: Date })
   updatedAt: Date;
 }

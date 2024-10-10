@@ -21,16 +21,22 @@ export enum OrderMessages {
 
 export enum CollectionGroupMessages {
   CREATE_GROUP_SUCCESS = "Successfully created collection group.",
+  UPDATE_GROUP_SUCCESS = "Successfully updated collection group.",
+  DELETE_GROUP_SUCCESS = "Successfully deleted collection group.",
   GET_GROUP_SUCCESS = "Successfully retrieved collection group.",
 }
 
 export enum CollectionMessages {
   CREATE_COLLECTION_SUCCESS = "Successfully created collection.",
+  UPDATE_COLLECTION_SUCCESS = "Successfully updated collection.",
+  DELETE_COLLECTION_SUCCESS = "Successfully deleted collection.",
   GET_COLLECTION_SUCCESS = "Successfully retrieved collection.",
 }
 
 export enum CategoryMessages {
   GET_CATEGORIES_SUCCESS = "Successfully retrieved categories.",
+  DELETE_CATEGORIES_SUCCESS = "Successfully deleted categories.",
+  UPDATE_CATEGORIES_SUCCESS = "Successfully updated categories.",
   CREATE_CATEGORY_SUCCESS = "Successfully created category.",
 }
 

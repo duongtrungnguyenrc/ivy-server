@@ -1,10 +1,10 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { ClientSession, Model, Types, UpdateQuery } from "mongoose";
+import { ClientSession, Document, Model, Types, UpdateQuery } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { Cache } from "@nestjs/cache-manager";
 
 import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
-import { PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
+import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CollectionService } from "./collection.service";
 import { joinCacheKey, withMutateTransaction } from "@app/utils";
@@ -21,11 +21,38 @@ export class ProductService {
     private readonly costModel: Model<Cost>,
     private readonly collectionService: CollectionService,
     private readonly cacheManager: Cache,
-  ) {}
+  ) { }
 
-  getNewProducts() {}
+  getNewProducts() { }
 
-  getBestSellerProducts() {}
+  getBestSellerProducts() { }
+
+  async getAllProduct({ page, limit }: Pagination): Promise<PaginationResponse<Product>> {
+    const skip = (page - 1) * limit;
+
+    const [products, productCount] = await Promise.all([
+      this.productModel
+        .find(NOT_DELETED_FILTER)
+        .select("_id name description images")
+        .populate(["options", "currentCost"])
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 })
+        .exec(),
+      this.productModel.countDocuments(NOT_DELETED_FILTER).exec(),
+    ]);
+
+    const response = {
+      meta: {
+        page,
+        limit,
+        pages: Math.ceil(productCount / limit),
+      },
+      data: products,
+    };
+
+    return response;
+  }
 
   async getProduct(id: string): Promise<Product> {
     const product: Product = await this.findProductById(id, ["currentCost", "options"]);
@@ -50,7 +77,7 @@ export class ProductService {
 
     const products = await this.productModel
       .find({
-        _id: { $in: collection.products },
+        $and: [{ _id: { $in: collection.products } }, NOT_DELETED_FILTER],
       })
       .skip(skip)
       .limit(limit)
@@ -63,7 +90,7 @@ export class ProductService {
         page: page,
         limit: limit,
         pages: totalPages,
-      },
+      }
     };
 
     return responseData;
@@ -100,17 +127,19 @@ export class ProductService {
 
     const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
 
-    const createCostQuery: Promise<Cost> = this.costModel.create(cost);
+    const createCostQuery: Promise<Cost> = this.costModel.findByIdAndUpdate(cost._id, cost);
 
-    const updateOptionsQuery: Promise<Option[]> = Promise.all(
-      options.map(async ({ id, ...option }) => {
+    const updateOptionsQuery: Promise<
+      (string | (Document<unknown, {}, Option> & Option & Required<{ _id: string }>))[]
+    > = Promise.all(
+      options.map(async ({ _id, ...option }) => {
         const existedOption: Option = await this.optionModel.findByIdAndUpdate(id, option);
 
         if (!existedOption) {
-          return await this.optionModel.create(option);
+          return (await this.optionModel.create(option)).id;
         }
 
-        return existedOption;
+        return existedOption._id;
       }),
     );
 

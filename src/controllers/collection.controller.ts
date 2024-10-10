@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
-import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateCollectionPayload } from "@app/models";
+import { CreateCollectionPayload, PaginationResponse, UpdateCollectionPayload } from "@app/models";
 import { CollectionService } from "@app/services";
 import { CollectionMessages } from "@app/enums";
 import { Collection } from "@app/schemas";
@@ -20,10 +20,33 @@ export class CollectionController {
     return this.collectionService.createCollection(payload);
   }
 
+  @Put("/:id")
+  @Auth(["ADMIN"])
+  @ApiBody({ type: UpdateCollectionPayload })
+  @ApiResponse({ description: CollectionMessages.UPDATE_COLLECTION_SUCCESS, type: Collection })
+  @ApiParam({ type: String, name: "id" })
+  updateCollection(@Param("id") id: string, @Body() payload: UpdateCollectionPayload): Promise<Collection> {
+    return this.collectionService.updateCollection(id, payload);
+  }
+
+  @Delete("/:id")
+  @Auth(["ADMIN"])
+  @ApiBody({ type: CreateCollectionPayload })
+  @ApiResponse({ description: CollectionMessages.DELETE_COLLECTION_SUCCESS })
+  @ApiParam({ type: String, name: "id" })
+  deleteCollection(@Param("id") id: string): Promise<void> {
+    return this.collectionService.deleteCollection(id);
+  }
+
   @Get("/")
   @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: Collection })
-  getCollections(): Promise<Collection[]> {
-    return this.collectionService.getCollections();
+  @ApiQuery({ type: Number, name: "page" })
+  @ApiQuery({ type: Number, name: "limit" })
+  getCollections(
+    @Query("page") page: number,
+    @Query("limit") limit: number,
+  ): Promise<PaginationResponse<Collection> | Collection[]> {
+    return this.collectionService.getCollections({ page, limit });
   }
 
   @Get("/:id")

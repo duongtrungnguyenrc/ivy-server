@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
-import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateCollectionGroupPayload } from "@app/models";
+import { CreateCollectionGroupPayload, PaginationResponse, UpdateCollectionGroupPayload, UpdateProductPayload } from "@app/models";
 import { CollectionGroupService } from "@app/services";
 import { CollectionGroupMessages } from "@app/enums";
 import { CollectionGroup } from "@app/schemas";
@@ -10,7 +10,7 @@ import { Auth } from "@app/decorators";
 @Controller("group")
 @ApiTags("group")
 export class CollectionGroupController {
-  constructor(private readonly groupService: CollectionGroupService) {}
+  constructor(private readonly groupService: CollectionGroupService) { }
 
   @Post("/")
   @Auth(["ADMIN"])
@@ -20,10 +20,29 @@ export class CollectionGroupController {
     return this.groupService.createCollectionGroup(payload);
   }
 
+  @Put("/")
+  @Auth(["ADMIN"])
+  @ApiBody({ type: UpdateProductPayload })
+  @ApiResponse({ description: CollectionGroupMessages.UPDATE_GROUP_SUCCESS, type: CollectionGroup })
+  updateCollectionGroup(@Body() payload: UpdateCollectionGroupPayload): Promise<CollectionGroup> {
+    return this.groupService.updateCollectionGroup(payload);
+  }
+
+  @Delete("/:id")
+  @Auth(["ADMIN"])
+  @ApiResponse({ description: CollectionGroupMessages.DELETE_GROUP_SUCCESS })
+  @ApiParam({ type: String, name: "id" })
+  deleteCollectionGroup(@Param("id") id: string): Promise<void> {
+    return this.groupService.deleteCollectionGroup(id);
+  }
+
   @Get("/")
   @ApiResponse({ description: CollectionGroupMessages.GET_GROUP_SUCCESS, type: CollectionGroup })
-  getCollectionGroups(): Promise<CollectionGroup[]> {
-    return this.groupService.getCollectionGroups();
+  getCollectionGroups(
+    @Query("page") page: number,
+    @Query("limit") limit: number,
+  ): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
+    return this.groupService.getCollectionGroups(page, limit);
   }
 
   @Get("/:id")

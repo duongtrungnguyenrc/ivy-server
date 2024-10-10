@@ -4,7 +4,7 @@ import { ApiProperty } from "@nestjs/swagger";
 class UpdateOptionPayload {
   @ApiProperty()
   @IsMongoId()
-  id: string;
+  _id: string;
 
   @ApiProperty()
   @IsOptional()
@@ -12,14 +12,25 @@ class UpdateOptionPayload {
   colorHexCode?: string;
 
   @ApiProperty()
-  @IsArray()
-  images?: string[];
+  @IsOptional()
+  @IsString()
+  colorName?: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsNumber()
+  stock?: number;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  size?: string;
 }
 
 class UpdateCostPayload {
   @ApiProperty()
   @IsMongoId()
-  id: string;
+  _id: string;
 
   @ApiProperty()
   @IsOptional()
@@ -57,8 +68,8 @@ export class UpdateProductPayload {
 
   @ApiProperty()
   @IsOptional()
-  @IsNumber()
-  quantity?: number;
+  @IsArray()
+  images?: string[];
 
   @ApiProperty()
   @IsNotEmpty()
@@ -79,10 +90,12 @@ export class UpdateProductPayload {
   collectionId?: string;
 
   @ApiProperty({ type: [UpdateOptionPayload] })
+  @IsOptional()
   @IsArray()
   options?: UpdateOptionPayload[];
 
   @ApiProperty({ type: UpdateCostPayload })
+  @IsOptional()
   @IsObject()
   cost?: UpdateCostPayload;
 }
