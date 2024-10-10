@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Put } from "@nestjs/common";
-import { Auth, AuthUid, Pagination } from "@app/decorators";
+import { ApiPagination, Auth, AuthUid, Pagination } from "@app/decorators";
 import { ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { PaginationResponse, UpdateUserPayload } from "@app/models";
@@ -26,6 +26,7 @@ export class UserController {
   }
 
   @Get("/access")
+  @ApiPagination()
   @ApiResponse({ description: UserMessages.GET_ACCESS_HISTORY_SUCCESS, type: [AccessRecord] })
   async getAccessHistory(
     @AuthUid() userId: string,

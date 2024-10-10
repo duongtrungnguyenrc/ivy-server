@@ -1,11 +1,16 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateCollectionPayload, PaginationResponse, UpdateCollectionPayload } from "@app/models";
+import { ApiPagination, Auth } from "@app/decorators";
 import { CollectionService } from "@app/services";
 import { CollectionMessages } from "@app/enums";
 import { Collection } from "@app/schemas";
-import { Auth } from "@app/decorators";
+import {
+  CreateCollectionPayload,
+  GetCollectionResponse,
+  PaginationResponse,
+  UpdateCollectionPayload,
+} from "@app/models";
 
 @Controller("collection")
 @ApiTags("collection")
@@ -39,9 +44,8 @@ export class CollectionController {
   }
 
   @Get("/")
+  @ApiPagination()
   @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: Collection })
-  @ApiQuery({ type: Number, name: "page" })
-  @ApiQuery({ type: Number, name: "limit" })
   getCollections(
     @Query("page") page: number,
     @Query("limit") limit: number,
@@ -50,8 +54,13 @@ export class CollectionController {
   }
 
   @Get("/:id")
-  @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: Collection })
-  getCollection(@Param("id") id: string): Promise<Collection> {
-    return this.collectionService.getCollection(id);
+  @ApiParam({ type: String, name: "id", description: CollectionMessages.COLLECTION_ID, required: true })
+  @ApiQuery({ type: Boolean, name: "filter", description: CollectionMessages.INCLUDE_FILTER, required: false })
+  @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: GetCollectionResponse || Collection })
+  getCollection(
+    @Param("id") id: string,
+    @Query("filter") filter: boolean,
+  ): Promise<GetCollectionResponse | Collection> {
+    return this.collectionService.getCollection(id, filter);
   }
 }

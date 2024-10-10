@@ -1,7 +1,7 @@
 import { Controller, Get, Param } from "@nestjs/common";
 
 import { RatingService } from "@app/services";
-import { Auth, AuthUid, Pagination } from "@app/decorators";
+import { ApiPagination, Auth, AuthUid, Pagination } from "@app/decorators";
 import { Rating } from "@app/schemas";
 import { ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { PaginationResponse } from "@app/models";
@@ -12,20 +12,21 @@ import { ProductMessages, RatingMessages } from "@app/enums";
 export class RatingController {
   constructor(private readonly ratingService: RatingService) {}
 
-  @Get("/check/:pid")
+  @Get("/check/:id")
   @Auth()
-  @ApiParam({ name: "pid", required: true, description: ProductMessages.PRODUCT_ID, type: String })
+  @ApiParam({ name: "id", required: true, description: ProductMessages.PRODUCT_ID, type: String })
   @ApiResponse({
     status: 200,
     description: RatingMessages.RATABLE,
     type: PaginationResponse<Rating>,
   })
-  async checkRatable(@AuthUid() userId: string, @Param("pid") productId: string): Promise<boolean> {
+  async checkRatable(@AuthUid() userId: string, @Param("id") productId: string): Promise<boolean> {
     return this.ratingService.hasPurchasedProduct(userId, productId);
   }
 
-  @Get("/:pid")
-  @ApiParam({ name: "pid", required: true, description: ProductMessages.PRODUCT_ID, type: String })
+  @Get("/:id")
+  @ApiParam({ name: "id", required: true, description: ProductMessages.PRODUCT_ID, type: String })
+  @ApiPagination()
   @ApiResponse({
     status: 200,
     description: RatingMessages.GET_RATINGS_SUCCESS,
@@ -36,7 +37,7 @@ export class RatingController {
     description: RatingMessages.PRODUCT_NOT_FOUND,
   })
   async getRatings(
-    @Param("pid") productId: string,
+    @Param("id") productId: string,
     @Pagination() pagination: Pagination,
   ): Promise<PaginationResponse<Rating>> {
     return this.ratingService.getRatingsByProductId(productId, pagination);

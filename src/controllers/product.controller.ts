@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
-import { Auth, Pagination } from "@app/decorators";
+import { ApiPagination, Auth, Pagination } from "@app/decorators";
 import { ProductService } from "@app/services";
 import { ProductMessages } from "@app/enums";
 import { Product } from "@app/schemas";
@@ -13,6 +13,7 @@ export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
   @Get("/all")
+  @ApiPagination()
   @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
   getAllProducts(@Pagination() pagination: Pagination): Promise<PaginationResponse<Product>> {
     return this.productService.getAllProduct(pagination);
@@ -26,6 +27,7 @@ export class ProductController {
   }
 
   @Get("/")
+  @ApiPagination()
   @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
   getProductsByCollection(
     @Query("collection") collectionId: string,

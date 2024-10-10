@@ -43,6 +43,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @Auth(["ADMIN"], JWTSocketAuthGuard)
   async onJoinAdminRoom(@ConnectedSocket() client: Socket) {
     await client.join(CHAT_ADMIN_ROOM_ID);
+    client.emit(ChatEvent.JOINED_ADMIN);
     this.logger.log(`Client ${client.id} joined admin room`);
   }
 
@@ -65,10 +66,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage(ChatEvent.SEND_MESSAGE)
+  @SubscribeMessage(ChatEvent.SEND)
   async onSendMessage(@ConnectedSocket() client: Socket, @MessageBody() payload: CreateMessagePayload) {
     try {
       const isClientInAdminRoom = await this.isClientInAdminRoom(client.id);
+
       const role = isClientInAdminRoom ? Role.ADMIN : Role.USER;
 
       if (role === Role.ADMIN && !isClientInAdminRoom) {

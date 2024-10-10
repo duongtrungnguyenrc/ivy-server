@@ -31,6 +31,8 @@ export enum CollectionMessages {
   UPDATE_COLLECTION_SUCCESS = "Successfully updated collection.",
   DELETE_COLLECTION_SUCCESS = "Successfully deleted collection.",
   GET_COLLECTION_SUCCESS = "Successfully retrieved collection.",
+  COLLECTION_ID = "Collection id",
+  INCLUDE_FILTER = "Include filter",
 }
 
 export enum CategoryMessages {
@@ -59,4 +61,9 @@ export enum RatingMessages {
   GET_RATINGS_SUCCESS = "Successfully retrieved ratings.",
   PRODUCT_NOT_FOUND = "Product not found.",
   RATABLE = "Ratable",
+}
+
+export enum PaginationMessaqes {
+  PAGE = "Current page",
+  LIMIT = "Item limit",
 }

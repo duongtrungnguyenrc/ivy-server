@@ -2,8 +2,8 @@ import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { ApiTags } from "@nestjs/swagger";
 
 import { InfiniteResponse, LoadChatRoomQuery, SendEmailPayload } from "@app/models";
+import { ApiPagination, Auth, Pagination } from "@app/decorators";
 import { ChatMessage, ChatRoom } from "@app/schemas";
-import { Auth, Pagination } from "@app/decorators";
 import { ContactService } from "@app/services";
 
 @Controller("contact")
@@ -18,12 +18,14 @@ export class ContactController {
 
   @Get("/")
   @Auth(["ADMIN"])
+  @ApiPagination()
   async getRooms(@Pagination() pagination: Pagination): Promise<InfiniteResponse<ChatRoom>> {
     return await this.contactService.getChatRooms(pagination);
   }
 
   @Get("/messages/:email")
   @Auth()
+  @ApiPagination()
   async getRoomMessages(
     @Param("email") email: string,
     @Pagination() pagination: Pagination,

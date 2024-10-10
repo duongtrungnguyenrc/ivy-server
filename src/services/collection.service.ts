@@ -3,9 +3,15 @@ import { Cache } from "@nestjs/cache-manager";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
-import { CollectionGroupService } from "./collection-group.service";
+import {
+  CollectionFilter,
+  CreateCollectionPayload,
+  GetCollectionResponse,
+  PaginationResponse,
+  UpdateCollectionPayload,
+} from "@app/models";
 import { COLLECTION_CACHE_PREFIX, NOT_DELETED_FILTER } from "@app/constants";
-import { CreateCollectionPayload, PaginationResponse, UpdateCollectionPayload } from "@app/models";
+import { CollectionGroupService } from "./collection-group.service";
 import { Collection, Product } from "@app/schemas";
 import { joinCacheKey } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
@@ -17,7 +23,7 @@ export class CollectionService {
     private readonly collectionModel: Model<Collection>,
     private readonly groupService: CollectionGroupService,
     private readonly cacheManager: Cache,
-  ) { }
+  ) {}
 
   async createCollection(payload: CreateCollectionPayload): Promise<Collection> {
     const { groupId, ...collection } = payload;
@@ -38,7 +44,7 @@ export class CollectionService {
 
     return updatedCollection;
   }
-  
+
   async deleteCollection(id: string): Promise<void> {
     const deletedCollection = await this.collectionModel.findByIdAndUpdate(id, { isDeleted: true });
 
@@ -78,14 +84,52 @@ export class CollectionService {
     return collections;
   }
 
-  async getCollection(id: string): Promise<Collection> {
-    const collection: Collection = await this.findCollectionById(id);
+  async getCollection(id: string, filter: boolean = false): Promise<GetCollectionResponse | Collection> {
+    const collection: Collection = await this.collectionModel
+      .findById(id)
+      .populate({
+        path: "products",
+        populate: {
+          path: "options",
+          model: "Option",
+        },
+      })
+      .exec();
 
     if (!collection) {
       throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
     }
 
-    return collection;
+    if (!filter) return collection;
+
+    const colorsSet: Set<string> = new Set();
+    const sizesSet: Set<string> = new Set();
+    const materialsSet: Set<string> = new Set();
+
+    for (const product of collection.products) {
+      if (product.material && product.material !== "Unknown") {
+        materialsSet.add(product.material);
+      }
+
+      if (product.options && product.options.length > 0) {
+        for (const option of product.options) {
+          if (option.colorHexCode) {
+            colorsSet.add(option.colorHexCode);
+          }
+          if (option.size) {
+            sizesSet.add(option.size);
+          }
+        }
+      }
+    }
+
+    const filterOptions: CollectionFilter = {
+      colors: Array.from(colorsSet),
+      sizes: Array.from(sizesSet),
+      materials: Array.from(materialsSet),
+    };
+
+    return { collection, filterOptions };
   }
 
   async addProduct(id: string, product: Product): Promise<Collection> {

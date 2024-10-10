@@ -1,7 +1,8 @@
 export enum ChatEvent {
   JOIN_ADMIN = "join-admin",
+  JOINED_ADMIN = "joined-admin",
   JOIN = "join",
-  SEND_MESSAGE = "send",
+  SEND = "send",
   TYPING = "typing",
   STOP_TYPING = "stop-typing",
   JOINED = "joined",
