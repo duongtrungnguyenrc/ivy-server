@@ -21,11 +21,11 @@ export class ProductService {
     private readonly costModel: Model<Cost>,
     private readonly collectionService: CollectionService,
     private readonly cacheManager: Cache,
-  ) { }
+  ) {}
 
-  getNewProducts() { }
+  getNewProducts() {}
 
-  getBestSellerProducts() { }
+  getBestSellerProducts() {}
 
   async getAllProduct({ page, limit }: Pagination): Promise<PaginationResponse<Product>> {
     const skip = (page - 1) * limit;
@@ -90,7 +90,7 @@ export class ProductService {
         page: page,
         limit: limit,
         pages: totalPages,
-      }
+      },
     };
 
     return responseData;
@@ -107,9 +107,9 @@ export class ProductService {
 
       const createProductPayload = {
         ...product,
-        options: createdOptions.map((option) => option._id),
-        currentCost: createdCost[0]._id,
-        costs: [createdCost[0]._id],
+        options: createdOptions.map((option) => new Types.ObjectId(option._id)),
+        currentCost: new Types.ObjectId(createdCost[0]._id),
+        costs: [new Types.ObjectId(createdCost[0]._id)],
       };
 
       const createdProduct = await this.productModel.create([createProductPayload], { session });

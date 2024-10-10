@@ -27,9 +27,15 @@ export class ContactService {
   }
 
   async getOrCreateRoom(email: string): Promise<ChatRoom> {
-    const room: ChatRoom = await this.chatRoomModel.findOne({
-      email,
-    });
+    const room: ChatRoom = await this.chatRoomModel
+      .findOne({
+        email,
+      })
+      .populate({
+        path: "messages",
+        options: { sort: { createdAt: -1 }, limit: 10 },
+      })
+      .lean();
 
     if (!room) return await this.chatRoomModel.create({ email });
 
