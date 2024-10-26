@@ -1,6 +1,5 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, forwardRef, Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { Cache } from "@nestjs/cache-manager";
 import { v4 as uuid } from "uuid";
 import { compare } from "bcrypt";
 
@@ -8,6 +7,7 @@ import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTI
 import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
 import { JwtAccessService, JwtRefreshService, UserService } from ".";
 import { ErrorMessage, MailSubject } from "@app/enums";
+import { CacheService } from "./cache.service";
 import { joinCacheKey } from "@app/utils";
 import { User } from "@app/schemas";
 
@@ -18,7 +18,7 @@ export class AuthService {
     private readonly jwtAccessService: JwtAccessService,
     private readonly jwtRefreshService: JwtRefreshService,
     private readonly mailService: MailerService,
-    private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async validateUser({ email, password }: SignInPayload): Promise<boolean> {
@@ -33,8 +33,6 @@ export class AuthService {
 
   async signIn({ email }: SignInPayload, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
     const user = await this.userService.findOneUser({ email });
-    if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
-
     const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {
@@ -138,11 +136,11 @@ export class AuthService {
     const currentTime = Math.floor(Date.now() / 1000);
     const tokenValidTime = (decodedAccessToken["exp"] - currentTime) * 1000;
 
-    await this.cacheManager.set(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId), tokenPair, tokenValidTime);
+    await this.cacheService.set(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId), tokenPair, tokenValidTime);
   }
 
   private async getCachedTokenPair(userId: string): Promise<TokenPair> {
-    return await this.cacheManager.get<TokenPair>(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
+    return await this.cacheService.get<TokenPair>(joinCacheKey(ACCESS_PAIR_CACHE_PREFIX, userId));
   }
 
   private async createResetPasswordTransaction(userId: string, ipAddress: string): Promise<ResetPasswordTransaction> {
@@ -151,13 +149,13 @@ export class AuthService {
 
     const transaction: ResetPasswordTransaction = { userId, transactionId, otpCode, ipAddress };
 
-    await this.cacheManager.set(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId), transaction, OTP_TTL);
+    await this.cacheService.set(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId), transaction, OTP_TTL);
 
     return transaction;
   }
 
   private async getCachedResetPasswordTransaction(userId: string): Promise<ResetPasswordTransaction> {
-    const transaction: ResetPasswordTransaction = await this.cacheManager.get(
+    const transaction: ResetPasswordTransaction = await this.cacheService.get(
       joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId),
     );
 
@@ -165,7 +163,7 @@ export class AuthService {
   }
 
   private async revokeResetPasswordTransaction(userId: string): Promise<void> {
-    await this.cacheManager.del(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
+    await this.cacheService.del(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
   }
 
   async revokeTokenPair(userId: string): Promise<void> {

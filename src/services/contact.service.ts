@@ -3,8 +3,8 @@ import { MailerService } from "@nestjs-modules/mailer";
 import { ClientSession, Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
-import { ChatMessage, ChatRoom } from "@app/schemas";
 import { CreateMessagePayload, InfiniteResponse, SendEmailPayload } from "@app/models";
+import { ChatMessage, ChatRoom } from "@app/schemas";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
 
@@ -19,10 +19,12 @@ export class ContactService {
   ) {}
 
   async sendEmail(payload: SendEmailPayload): Promise<void> {
-    this.mailerService.sendMail({
-      to: payload.email,
-      subject: payload.subject,
-      html: payload.content,
+    const { to, subject, content } = payload;
+
+    await this.mailerService.sendMail({
+      to: to,
+      subject: subject,
+      html: content,
     });
   }
 

@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
-import { InjectModel } from "@nestjs/mongoose";
 import { Model, FilterQuery, Types } from "mongoose";
-import { Cache } from "@nestjs/cache-manager";
+import { InjectModel } from "@nestjs/mongoose";
 import { genSalt, hash } from "bcrypt";
 
 import { PaginationResponse, UpdateUserPayload } from "@app/models";
 import { joinCacheKey, withMutateTransaction } from "@app/utils";
 import { USER_CACHE_PREFIX } from "@app/constants";
 import { AccessRecord, User } from "@app/schemas";
+import { CacheService } from "./cache.service";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
@@ -17,7 +17,7 @@ export class UserService {
     private readonly userModel: Model<User>,
     @InjectModel(AccessRecord.name)
     private readonly accessRecordModel: Model<AccessRecord>,
-    private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getAuthUser(id: string): Promise<User> {
@@ -130,14 +130,14 @@ export class UserService {
   }
 
   private async getUserFromCache(userId: string): Promise<User | null> {
-    return this.cacheManager.get<User>(joinCacheKey(USER_CACHE_PREFIX, userId));
+    return this.cacheService.get<User>(joinCacheKey(USER_CACHE_PREFIX, userId));
   }
 
   private async cacheUser(userId: string, user: User): Promise<void> {
-    await this.cacheManager.set(joinCacheKey(USER_CACHE_PREFIX, userId), user);
+    await this.cacheService.set(joinCacheKey(USER_CACHE_PREFIX, userId), user);
   }
 
   private async clearUserCache(userId: string): Promise<void> {
-    await this.cacheManager.del(joinCacheKey(USER_CACHE_PREFIX, userId));
+    await this.cacheService.del(joinCacheKey(USER_CACHE_PREFIX, userId));
   }
 }

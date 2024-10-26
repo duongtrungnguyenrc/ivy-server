@@ -1,5 +1,4 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { Cache } from "@nestjs/cache-manager";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
@@ -13,6 +12,7 @@ import {
 import { COLLECTION_CACHE_PREFIX, NOT_DELETED_FILTER } from "@app/constants";
 import { CollectionGroupService } from "./collection-group.service";
 import { Collection, Product } from "@app/schemas";
+import { CacheService } from "./cache.service";
 import { joinCacheKey } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
 
@@ -22,7 +22,7 @@ export class CollectionService {
     @InjectModel(Collection.name)
     private readonly collectionModel: Model<Collection>,
     private readonly groupService: CollectionGroupService,
-    private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async createCollection(payload: CreateCollectionPayload): Promise<Collection> {
@@ -150,7 +150,7 @@ export class CollectionService {
     if (!force) {
       const collectionCacheKey: string = joinCacheKey(COLLECTION_CACHE_PREFIX, id);
 
-      const cachedCollection: Collection = await this.cacheManager.get(collectionCacheKey);
+      const cachedCollection: Collection = await this.cacheService.get(collectionCacheKey);
 
       if (cachedCollection) return cachedCollection;
     }

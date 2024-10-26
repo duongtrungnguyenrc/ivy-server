@@ -1,13 +1,13 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
 import { ClientSession, Document, Model, Types, UpdateQuery } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
-import { Cache } from "@nestjs/cache-manager";
 
 import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
 import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
-import { CollectionService } from "./collection.service";
 import { joinCacheKey, withMutateTransaction } from "@app/utils";
+import { CollectionService } from "./collection.service";
+import { CacheService } from "./cache.service";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
@@ -20,7 +20,7 @@ export class ProductService {
     @InjectModel(Cost.name)
     private readonly costModel: Model<Cost>,
     private readonly collectionService: CollectionService,
-    private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   getNewProducts() {}
@@ -167,7 +167,7 @@ export class ProductService {
 
     const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, updateProductPayload);
 
-    this.cacheManager.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
+    this.cacheService.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
 
     return updatedProduct;
   }
@@ -216,7 +216,7 @@ export class ProductService {
 
   async findProductById(id: string, populate: (keyof Product)[] = [], raw: boolean = false): Promise<Product> {
     const productCacheKey: string = joinCacheKey(PRODUCT_CACHE_PREFIX, id);
-    const cachedProduct: Product = await this.cacheManager.get(productCacheKey);
+    const cachedProduct: Product = await this.cacheService.get(productCacheKey);
 
     if (cachedProduct) return cachedProduct;
 
@@ -226,14 +226,14 @@ export class ProductService {
       throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
 
-    this.cacheManager.set(productCacheKey, product);
+    this.cacheService.set(productCacheKey, product);
 
     return product;
   }
 
   async findProductOptionById(id: string, raw: boolean = false): Promise<Option> {
     const productOptionCacheKey: string = joinCacheKey(PRODUCT_OPTION_CACHE_PREFIX, id);
-    const cachedProductOption: Option = await this.cacheManager.get(productOptionCacheKey);
+    const cachedProductOption: Option = await this.cacheService.get(productOptionCacheKey);
 
     if (cachedProductOption) return cachedProductOption;
 
@@ -243,7 +243,7 @@ export class ProductService {
       throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
     }
 
-    this.cacheManager.set(productOptionCacheKey, option);
+    this.cacheService.set(productOptionCacheKey, option);
 
     return option;
   }

@@ -1,19 +1,19 @@
 import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
+import { ClientSession, Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
 import { Request, Response } from "express";
-import { ClientSession, Model, Types } from "mongoose";
 import { format } from "date-fns";
 import * as querystring from "qs";
 import * as crypto from "crypto";
 
 import { ErrorMessage, OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
-import { Option, Order, OrderItem, Product } from "@app/schemas";
-import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
+import { CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import { Option, Order, OrderItem, Product } from "@app/schemas";
 import { ProductService } from "./product.service";
 import { withMutateTransaction } from "@app/utils";
-import { Cache } from "@nestjs/cache-manager";
+import { CacheService } from "./cache.service";
 import { CartService } from "./cart.service";
 
 @Injectable()
@@ -26,18 +26,24 @@ export class OrderService {
     private readonly cartService: CartService,
     private readonly productService: ProductService,
     private readonly configService: ConfigService,
-    private readonly cacheManage: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   async getOrder(id: string, force: boolean = false): Promise<Order> {
-    const cachedOrder: Order | undefined = await this.cacheManage.get(ORDER_CACHE_PREFIX);
+    const cachedOrder: Order | undefined = await this.cacheService.get(ORDER_CACHE_PREFIX);
 
     if (cachedOrder && !force) return cachedOrder;
 
-    return await this.orderModel.findById(id);
+    return await this.orderModel.findById(id).populate({
+      path: "items",
+      populate: {
+        path: "cost",
+        model: "Cost",
+      },
+    });
   }
 
-  async createOrder(payload: CreateOrderPayload, userId: string, ipAddress: string, res: Response): Promise<Order> {
+  async createOrder(payload: CreateOrderPayload, userId: string): Promise<Order> {
     const session: ClientSession = await this.orderModel.db.startSession();
 
     return withMutateTransaction(session, async () => {
@@ -80,7 +86,27 @@ export class OrderService {
         }),
       );
 
-      const totalCost: number = createdItems.reduce((prev, current) => {
+      const createdOrder: Order = await this.orderModel.create({
+        ...order,
+        items: createdItems.map(({ _id }) => new Types.ObjectId(_id)),
+        user: new Types.ObjectId(userId),
+      });
+
+      return createdOrder;
+    });
+  }
+
+  async processOrder(orderId: string, payload: ProcessOrderPayload, ipAddress: string, res: Response) {
+    const session: ClientSession = await this.orderModel.db.startSession();
+
+    return withMutateTransaction(session, async () => {
+      const order: Order = await (
+        await this.orderModel.findOneAndUpdate({ _id: orderId }, payload, { new: true, session })
+      ).populate("items");
+
+      if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+
+      const totalCost: number = order.items.reduce((prev, current) => {
         const { saleCost, discountPercentage } = current.cost;
 
         const discountCost = (saleCost * discountPercentage) / 100;
@@ -88,27 +114,18 @@ export class OrderService {
         return (saleCost - discountCost) * current.quantity + prev;
       }, 0);
 
-      const createdOrder: Order = await this.orderModel.create({
-        ...order,
-        items: createdItems,
-        user: new Types.ObjectId(userId),
-      });
-
       if (order.paymentMethod === PaymentMethod.VNPAY) {
         const paymentUrl: string = await this.createPaymentUrl(
           totalCost,
-          createdOrder._id,
+          order._id,
           VNPAY_FASHION_PRODUCT_TYPE,
-          `Đơn hàng Ivy cho ${createdOrder.name}`,
+          `Đơn hàng Ivy cho ${order.name}`,
           ipAddress,
         );
 
         res.redirect(paymentUrl);
-        return;
+        return order;
       }
-
-      res.json(createdOrder);
-      return createdOrder;
     });
   }
 

@@ -1,15 +1,15 @@
-import { Cache } from "@nestjs/cache-manager";
 import { Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 
 import { REVOKE_REFRESH_TOKEN_CACHE_PREFIX } from "@app/constants";
+import { CacheService } from "./cache.service";
 import { joinCacheKey } from "@app/utils";
 
 @Injectable()
 export class JwtRefreshService {
   constructor(
     private readonly jwtService: JwtService,
-    private readonly cacheManager: Cache,
+    private readonly cacheService: CacheService,
   ) {}
 
   decodeToken(token: string): JwtPayload {
@@ -26,11 +26,11 @@ export class JwtRefreshService {
     const currentTime = Math.floor(Date.now() / 1000);
     const tokenValidTime = (decodedToken["exp"] - currentTime) * 1000;
 
-    this.cacheManager.set(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
+    this.cacheService.set(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
   }
 
   async verifyToken(token: string): Promise<any> {
-    const revokeToken = await this.cacheManager.get(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token));
+    const revokeToken = await this.cacheService.get(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token));
 
     if (revokeToken) return;
 

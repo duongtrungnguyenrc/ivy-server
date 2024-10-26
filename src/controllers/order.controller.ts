@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Req, Res } from "@nestjs/commo
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { Request, Response } from "express";
 
-import { CreateOrderPayload, UpdateOrderPayload } from "@app/models";
+import { CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
 import { AuthUid, IpAddress } from "@app/decorators";
 import { OrderService } from "@app/services";
 import { OrderMessages } from "@app/enums";
@@ -16,13 +16,21 @@ export class OrderController {
   @Post("/")
   @ApiBody({ type: CreateOrderPayload })
   @ApiResponse({ description: OrderMessages.CREATE_ORDER_SUCCESS, type: Order })
-  createOrder(
-    @Body() payload: CreateOrderPayload,
-    @AuthUid() userId: string,
+  createOrder(@Body() payload: CreateOrderPayload, @AuthUid() userId: string): Promise<Order> {
+    return this.orderService.createOrder(payload, userId);
+  }
+
+  @Post("/process/:id")
+  @ApiBody({ type: ProcessOrderPayload })
+  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
+  @ApiResponse({ description: OrderMessages.CREATE_ORDER_SUCCESS, type: Order })
+  processOrder(
+    @Body() payload: ProcessOrderPayload,
+    @Param("id") orderId: string,
     @IpAddress() ipAddress: string,
     @Res() response: Response,
   ): Promise<Order> {
-    return this.orderService.createOrder(payload, userId, ipAddress, response);
+    return this.orderService.processOrder(orderId, payload, ipAddress, response);
   }
 
   @Put("/:id")
@@ -33,8 +41,11 @@ export class OrderController {
     return this.orderService.updateOrder(id, payload);
   }
 
-  @Post("/delivery-callback")
-  deliveryCallback() {}
+  @Get("/:id")
+  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
+  async getOrder(@Param("id") orderId: string): Promise<Order> {
+    return await this.orderService.getOrder(orderId, true);
+  }
 
   @Get("/payment-callback")
   @ApiResponse({ description: OrderMessages.PAYMENT_CALLBACK_SUCCESS })
