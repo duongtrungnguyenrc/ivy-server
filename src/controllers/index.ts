@@ -9,4 +9,4 @@ export * from "./cart.controller";
 export * from "./user.controller";
 export * from "./contact.controller";
 export * from "./rating.controller";
-export * from "./delivery.controller";
+export * from "./payment.controller";

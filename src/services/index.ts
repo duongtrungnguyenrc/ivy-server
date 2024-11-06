@@ -10,5 +10,6 @@ export * from "./order.service";
 export * from "./cart.service";
 export * from "./contact.service";
 export * from "./rating.service";
-export * from "./delivery.service";
 export * from "./cache.service";
+export * from "./delivery.service";
+export * from "./payment.service";

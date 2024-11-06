@@ -1,14 +1,22 @@
 import { createParamDecorator, ExecutionContext } from "@nestjs/common";
 import { decode } from "jsonwebtoken";
+import { Request } from "express";
 
 import { getTokenFromRequest } from "@app/utils";
+import { UserService } from "@app/services";
 
-export const AuthUid = createParamDecorator((_, ctx: ExecutionContext): string => {
-  const request = ctx.switchToHttp().getRequest();
+export const AuthUid = createParamDecorator(async (_, ctx: ExecutionContext): Promise<string | null> => {
+  const request: Request = ctx.switchToHttp().getRequest();
 
   const authToken: string = getTokenFromRequest(request, true);
 
   const decodedToken = decode(authToken);
+  const decodedId = (decodedToken as JwtPayload)?.userId;
 
-  return (decodedToken as JwtPayload)?.userId;
+  if (!decodedId) return null;
+
+  const userService: UserService = request["userService"] as UserService;
+  const existingUser = await userService.findUser(decodedId, ["_id"], [], false, `id`);
+
+  return existingUser?._id || null;
 });

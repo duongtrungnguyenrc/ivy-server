@@ -21,3 +21,4 @@ export * from "./update-group.payload";
 export * from "./update-collection.payload";
 export * from "./calc-ghn-fee.payload";
 export * from "./process-order.payload";
+export * from "./cancel-order.payload";

@@ -17,10 +17,9 @@ export class CacheModule {
           provide: CACHE_PROVIDE,
           useFactory: (configService: ConfigService) => {
             return new Keyv({
-              store: new KeyvRedis(configService.get<string>("REDIS_URL"), {
-                ttl: async () => configService.get<number>("REDIS_TTL"),
-              }),
+              store: new KeyvRedis(configService.get<string>("REDIS_URL")),
               namespace: "root",
+              ttl: Number(configService.get<number>("REDIS_TTL")),
             });
           },
           inject: [ConfigService],

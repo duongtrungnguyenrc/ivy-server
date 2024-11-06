@@ -1,5 +1,6 @@
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { ValidationPipe } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import * as compression from "compression";
 import { NestFactory } from "@nestjs/core";
 
@@ -8,10 +9,14 @@ import { AppModule } from "@app/modules";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService: ConfigService = app.get(ConfigService);
 
   app.use(compression());
   app.setGlobalPrefix("/api");
-  app.enableCors();
+  app.enableCors({
+    origin: [configService.get<string>("CLIENT_URL")],
+    methods: "GET,PUT,POST,DELETE",
+  });
   app.useGlobalPipes(new ValidationPipe());
   app.useWebSocketAdapter(new SocketAdapter(app));
 

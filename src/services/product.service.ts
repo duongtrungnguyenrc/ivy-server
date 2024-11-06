@@ -3,7 +3,7 @@ import { ClientSession, Document, Model, Types, UpdateQuery } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
 import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
-import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX, PRODUCT_OPTION_CACHE_PREFIX } from "@app/constants";
+import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX } from "@app/constants";
 import { Collection, Cost, Option, Product } from "@app/schemas";
 import { joinCacheKey, withMutateTransaction } from "@app/utils";
 import { CollectionService } from "./collection.service";
@@ -23,10 +23,6 @@ export class ProductService {
     private readonly cacheService: CacheService,
   ) {}
 
-  getNewProducts() {}
-
-  getBestSellerProducts() {}
-
   async getAllProduct({ page, limit }: Pagination): Promise<PaginationResponse<Product>> {
     const skip = (page - 1) * limit;
 
@@ -42,7 +38,7 @@ export class ProductService {
       this.productModel.countDocuments(NOT_DELETED_FILTER).exec(),
     ]);
 
-    const response = {
+    return {
       meta: {
         page,
         limit,
@@ -50,8 +46,6 @@ export class ProductService {
       },
       data: products,
     };
-
-    return response;
   }
 
   async getProduct(id: string): Promise<Product> {
@@ -84,7 +78,7 @@ export class ProductService {
       .populate(["currentCost", "options"])
       .exec();
 
-    const responseData: PaginationResponse<Product> = {
+    return {
       data: products,
       meta: {
         page: page,
@@ -92,8 +86,6 @@ export class ProductService {
         pages: totalPages,
       },
     };
-
-    return responseData;
   }
 
   async createProduct(payload: CreateProductPayload): Promise<Product> {
@@ -130,9 +122,9 @@ export class ProductService {
     const createCostQuery: Promise<Cost> = this.costModel.findByIdAndUpdate(cost._id, cost);
 
     const updateOptionsQuery: Promise<
-      (string | (Document<unknown, {}, Option> & Option & Required<{ _id: string }>))[]
+      (string | (Document<unknown, any, Option> & Option & Required<{ _id: string }>))[]
     > = Promise.all(
-      options.map(async ({ _id, ...option }) => {
+      options.map(async (option) => {
         const existedOption: Option = await this.optionModel.findByIdAndUpdate(id, option);
 
         if (!existedOption) {
@@ -167,7 +159,7 @@ export class ProductService {
 
     const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, updateProductPayload);
 
-    this.cacheService.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
+    await this.cacheService.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
 
     return updatedProduct;
   }
@@ -180,22 +172,6 @@ export class ProductService {
     if (!updatedProduct) {
       throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
-  }
-
-  async updateProductOptionById(id: string, update: UpdateQuery<Option>, raw: boolean = false): Promise<Option> {
-    const option: Option = await this.optionModel.findByIdAndUpdate(
-      id,
-      {
-        ...update,
-      },
-      { new: true },
-    );
-
-    if (!option && !raw) {
-      throw new Error(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
-    }
-
-    return option;
   }
 
   async checkProductAndOptionExist(productId: string, optionId: string): Promise<boolean> {
@@ -226,25 +202,8 @@ export class ProductService {
       throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
 
-    this.cacheService.set(productCacheKey, product);
+    await this.cacheService.set(productCacheKey, product);
 
     return product;
-  }
-
-  async findProductOptionById(id: string, raw: boolean = false): Promise<Option> {
-    const productOptionCacheKey: string = joinCacheKey(PRODUCT_OPTION_CACHE_PREFIX, id);
-    const cachedProductOption: Option = await this.cacheService.get(productOptionCacheKey);
-
-    if (cachedProductOption) return cachedProductOption;
-
-    const option: Option = await this.optionModel.findById(id);
-
-    if (!option && !raw) {
-      throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
-    }
-
-    this.cacheService.set(productOptionCacheKey, option);
-
-    return option;
   }
 }

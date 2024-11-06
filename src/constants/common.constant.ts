@@ -4,5 +4,5 @@ export const VNPAY_FASHION_PRODUCT_TYPE = 200000;
 export const TOKEN_TYPE = "Bearer";
 export const CHAT_ADMIN_ROOM_ID = "admin";
 export const NOT_DELETED_FILTER = {
-    $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
+  $or: [{ isDeleted: false }, { isDeleted: { $exists: false } }],
 };

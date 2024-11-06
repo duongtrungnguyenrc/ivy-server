@@ -14,3 +14,4 @@ export * from "./cart-item.schema";
 export * from "./access-record.schema";
 export * from "./chat-room.schema";
 export * from "./chat-message.schema";
+export * from "./order-transaction.schema";

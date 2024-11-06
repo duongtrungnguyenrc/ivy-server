@@ -2,8 +2,6 @@ export enum ErrorMessage {
   // Auth
 
   INVALID_AUTH_TOKEN = "Token không hợp lệ",
-  WRONG_EMAIL = "Địa chỉ email không tồn tại",
-  WRONG_PASSWORD = "Mật khẩu không chính xác",
   USER_NOT_FOUND = "Người dùng không tồn tại",
   WRONG_EMAIL_OR_PASSWORD = "Email hoặc mật khẩu không chính xác",
   INVALID_OTP = "Mã OTP không hợp lệ",
@@ -18,6 +16,7 @@ export enum ErrorMessage {
   PRODUCT_NOT_FOUND = "Sản phẩm không tồn tại",
   PRODUCT_OPTION_NOT_FOUND = "Dòng sản phẩm không tồn tại",
   PRODUCT_SOLD_OUT = "Xin lỗi, sản phẩm hiện đang hết hàng",
+  OPTION_NOT_FOUND = "Xin lỗi, tuỳ chọn sản phẩm hiện đang hết hàng",
 
   // Collection group
 
@@ -35,6 +34,8 @@ export enum ErrorMessage {
   // Order
 
   ORDER_NOT_FOUND = "Đơn hàng không tồn tại",
+  ORDER_CANT_CANCEL = "Đơn hàng đã được xử lý và không thể huỷ",
+  ORDER_CANCEL_FAILED = "Đã xảy ra lỗi không xác định khi huỷ đơn hàng. vui lòng thử lại sau",
 
   // Payment
 
@@ -42,12 +43,15 @@ export enum ErrorMessage {
 
   // Contact
 
-  ROOM_EXISTED = "Phòng contact đã tồn tại",
-  ROOM_NOT_FOUND = "Phòng contact không tồn tại",
+  ROOM_EXISTED = "Phòng chat đã tồn tại",
+  ROOM_NOT_FOUND = "Phòng chat không tồn tại",
   COULD_NOT_SEND_MESSAGE = "Không thể gửi tin nhắn",
-  COULD_NOT_JOIN_ROOM = "Không thể tham gia phòng contact",
+  COULD_NOT_JOIN_ROOM = "Không thể tham gia phòng chat",
 
   // Rating
 
   REQUIRE_PURCHASE = "Bạn phải mua hàng mới có thể đánh giá sản phẩm",
+
+  // Delivery
+  DELIVERY_SERVICE_UNAVAILABLE = "Dịch vụ vận chuyển chưa khả dụng tại địa phương này",
 }

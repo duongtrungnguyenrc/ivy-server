@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put, Req, Res } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Request, Response } from "express";
 
-import { CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
-import { AuthUid, IpAddress } from "@app/decorators";
+import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import { ApiPagination, Auth, AuthUid, IpAddress, Pagination } from "@app/decorators";
 import { OrderService } from "@app/services";
 import { OrderMessages } from "@app/enums";
 import { Order } from "@app/schemas";
@@ -24,13 +23,34 @@ export class OrderController {
   @ApiBody({ type: ProcessOrderPayload })
   @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
   @ApiResponse({ description: OrderMessages.CREATE_ORDER_SUCCESS, type: Order })
-  processOrder(
+  async processOrder(
     @Body() payload: ProcessOrderPayload,
     @Param("id") orderId: string,
+    @AuthUid() userId: string,
     @IpAddress() ipAddress: string,
-    @Res() response: Response,
-  ): Promise<Order> {
-    return this.orderService.processOrder(orderId, payload, ipAddress, response);
+  ): Promise<string> {
+    return await this.orderService.processOrder(orderId, userId, payload, ipAddress);
+  }
+
+  @Auth()
+  @Post("/request-cancel/:id")
+  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
+  @ApiResponse({ description: OrderMessages.REQUEST_CANCEL_ORDER_SUCCESS })
+  async requestCancelOrder(@Param("id") orderId: string, @AuthUid() userId: string): Promise<boolean> {
+    return await this.orderService.requestCancelOrder(orderId, userId);
+  }
+
+  @Auth(["ADMIN"])
+  @Post("/cancel/:id")
+  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
+  @ApiBody({ type: CancelOrderPayload })
+  @ApiResponse({ description: OrderMessages.CANCEL_ORDER_SUCCESS })
+  async cancelOrder(
+    @Param("id") orderId: string,
+    @Body() payload: CancelOrderPayload,
+    @IpAddress() ipAddress: string,
+  ): Promise<void> {
+    return await this.orderService.cancelOrder(orderId, payload, ipAddress);
   }
 
   @Put("/:id")
@@ -41,15 +61,16 @@ export class OrderController {
     return this.orderService.updateOrder(id, payload);
   }
 
-  @Get("/:id")
-  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
-  async getOrder(@Param("id") orderId: string): Promise<Order> {
-    return await this.orderService.getOrder(orderId, true);
+  @Get("/")
+  @ApiPagination()
+  @ApiResponse({ type: Array<Order>, description: OrderMessages.USER_ORDERS })
+  async getCreatedOrder(@AuthUid() userId: string, @Pagination() pagination: Pagination): Promise<Order[]> {
+    return this.orderService.getUserOrders(userId, pagination);
   }
 
-  @Get("/payment-callback")
-  @ApiResponse({ description: OrderMessages.PAYMENT_CALLBACK_SUCCESS })
-  paymentCallback(@Req() request: Request, @Res() response: Response): Promise<void> {
-    return this.orderService.paymentCallback(request, response);
+  @Get("/detail/:id")
+  @ApiParam({ type: String, name: OrderMessages.ORDER_ID })
+  async getOrderDetail(@Param("id") orderId: string) {
+    return await this.orderService.getOrderDetail(orderId);
   }
 }

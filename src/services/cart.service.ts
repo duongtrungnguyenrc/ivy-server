@@ -79,13 +79,21 @@ export class CartService {
     return newCart.populate(this.getCartPopulationOptions());
   }
 
-  async deleteCartItem(cartId: string, itemId: string): Promise<Cart | null> {
+  async deleteCartItem(userId: string, itemId: Types.ObjectId | Types.ObjectId[]): Promise<Cart | null> {
+    const cart = await this.cartModel.findOne({
+      user: new Types.ObjectId(userId),
+    });
+
     const updatedCart = await this.cartModel
-      .findByIdAndUpdate(cartId, { $pull: { items: new Types.ObjectId(itemId) } }, { new: true })
+      .findByIdAndUpdate(cart._id, { $pull: { items: { $in: itemId } } }, { new: true })
       .exec();
 
     if (updatedCart) {
-      await this.cartItemModel.findByIdAndDelete(itemId).exec();
+      if (Array.isArray(itemId)) {
+        await this.cartItemModel.deleteMany({ _id: { $in: itemId } }).exec();
+      } else {
+        await this.cartItemModel.findByIdAndDelete(itemId).exec();
+      }
     }
 
     return updatedCart;

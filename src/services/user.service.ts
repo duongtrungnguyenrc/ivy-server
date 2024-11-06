@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
-import { Model, FilterQuery, Types } from "mongoose";
+import { FilterQuery, Model, PopulateOptions, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { genSalt, hash } from "bcrypt";
 
@@ -21,7 +21,7 @@ export class UserService {
   ) {}
 
   async getAuthUser(id: string): Promise<User> {
-    const user = await this.findOneUser({ _id: id });
+    const user = await this.findUser(id);
 
     if (!user) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
@@ -66,7 +66,7 @@ export class UserService {
       .sort({ createdAt: -1 })
       .lean();
 
-    const responseData: PaginationResponse<AccessRecord> = {
+    return {
       data: records.map((record) => {
         const parsedCreatedTime = new Date(record.createdAt);
 
@@ -83,8 +83,37 @@ export class UserService {
         pages: totalPages,
       },
     };
+  }
 
-    return responseData;
+  async findUser(
+    idOrFilter: string | FilterQuery<User>,
+    select?: string | string[] | Record<string, number | boolean | string | object>,
+    populate?: PopulateOptions | Array<PopulateOptions | string>,
+    force: boolean = false,
+    cacheKey: string = "",
+  ): Promise<User> {
+    const boundCacheKey: string = `${USER_CACHE_PREFIX}:${JSON.stringify(idOrFilter)}:${JSON.stringify(select)}${cacheKey}`;
+
+    const cachedUser = force ? null : await this.cacheService.get<User>(boundCacheKey);
+
+    if (cachedUser) return cachedUser;
+
+    const query =
+      typeof idOrFilter === "string" ? this.userModel.findById(idOrFilter) : this.userModel.findOne(idOrFilter);
+
+    if (select) {
+      query.select(select);
+    }
+
+    if (populate) {
+      query.populate(populate);
+    }
+
+    const user = await query.exec();
+
+    await this.cacheService.set(boundCacheKey, user);
+
+    return user;
   }
 
   async findOneUser(
@@ -121,7 +150,7 @@ export class UserService {
   }
 
   async findAndUpdateUser(payload: FilterQuery<User>, updates: Partial<User>): Promise<User> {
-    return await this.userModel.findOneAndUpdate(payload, updates, { new: true });
+    return this.userModel.findOneAndUpdate(payload, updates, { new: true });
   }
 
   async hashPassword(password: string): Promise<string> {

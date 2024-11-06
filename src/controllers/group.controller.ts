@@ -1,7 +1,12 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateCollectionGroupPayload, PaginationResponse, UpdateCollectionGroupPayload, UpdateProductPayload } from "@app/models";
+import {
+  CreateCollectionGroupPayload,
+  PaginationResponse,
+  UpdateCollectionGroupPayload,
+  UpdateProductPayload,
+} from "@app/models";
 import { CollectionGroupService } from "@app/services";
 import { CollectionGroupMessages } from "@app/enums";
 import { CollectionGroup } from "@app/schemas";
@@ -10,7 +15,7 @@ import { Auth } from "@app/decorators";
 @Controller("group")
 @ApiTags("group")
 export class CollectionGroupController {
-  constructor(private readonly groupService: CollectionGroupService) { }
+  constructor(private readonly groupService: CollectionGroupService) {}
 
   @Post("/")
   @Auth(["ADMIN"])

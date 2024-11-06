@@ -12,7 +12,7 @@ export class CategoryService {
   constructor(
     @InjectModel(Category.name)
     private readonly categoryModel: Model<Category>,
-  ) { }
+  ) {}
 
   async createCategory(payload: CreateCategoryPayload): Promise<Category> {
     return await this.categoryModel.create(payload);

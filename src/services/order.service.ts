@@ -1,16 +1,21 @@
-import { BadRequestException, Injectable, InternalServerErrorException } from "@nestjs/common";
-import { ClientSession, Model, Types } from "mongoose";
+import { ClientSession, FilterQuery, Model, PopulateOptions, Types } from "mongoose";
+import { ISendMailOptions, MailerService } from "@nestjs-modules/mailer";
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
-import { Request, Response } from "express";
-import { format } from "date-fns";
-import * as querystring from "qs";
-import * as crypto from "crypto";
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  NotAcceptableException,
+} from "@nestjs/common";
 
-import { ErrorMessage, OrderStatus, PaymentMethod, VnpayTransactionStatus } from "@app/enums";
+import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import { Option, Order, OrderItem, OrderTransaction, Product } from "@app/schemas";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
-import { CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
-import { Option, Order, OrderItem, Product } from "@app/schemas";
+import { DeliveryService } from "@app/services/delivery.service";
+import { PaymentService } from "@app/services/payment.service";
+import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod } from "@app/enums";
 import { ProductService } from "./product.service";
 import { withMutateTransaction } from "@app/utils";
 import { CacheService } from "./cache.service";
@@ -19,207 +24,330 @@ import { CartService } from "./cart.service";
 @Injectable()
 export class OrderService {
   constructor(
-    @InjectModel(Order.name)
-    private readonly orderModel: Model<Order>,
-    @InjectModel(OrderItem.name)
-    private readonly orderItemModel: Model<OrderItem>,
-    private readonly cartService: CartService,
+    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
+    @InjectModel(OrderItem.name) private readonly orderItemModel: Model<OrderItem>,
+    @InjectModel(Option.name) private readonly optionModel: Model<Option>,
+    private readonly deliveryService: DeliveryService,
+    private readonly paymentService: PaymentService,
     private readonly productService: ProductService,
+    private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
     private readonly cacheService: CacheService,
+    private readonly cartService: CartService,
   ) {}
 
-  async getOrder(id: string, force: boolean = false): Promise<Order> {
-    const cachedOrder: Order | undefined = await this.cacheService.get(ORDER_CACHE_PREFIX);
+  async getOrderDetail(id: string): Promise<Order> {
+    const order = await this.findOrder(
+      id,
+      undefined,
+      [
+        {
+          path: "items",
+          populate: [
+            {
+              path: "cost",
+              model: "Cost",
+            },
+            {
+              path: "product",
+              model: "Product",
+              select: ["_id", "name", "images"],
+            },
+            {
+              path: "option",
+              model: "Option",
+            },
+          ],
+        },
+        {
+          path: "transaction",
+          model: "OrderTransaction",
+        },
+      ],
+      false,
+      `detail`,
+    );
 
-    if (cachedOrder && !force) return cachedOrder;
-
-    return await this.orderModel.findById(id).populate({
-      path: "items",
-      populate: {
-        path: "cost",
-        model: "Cost",
-      },
-    });
+    if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+    return order;
   }
 
   async createOrder(payload: CreateOrderPayload, userId: string): Promise<Order> {
-    const session: ClientSession = await this.orderModel.db.startSession();
+    const session = await this.orderModel.db.startSession();
 
     return withMutateTransaction(session, async () => {
-      const { items, ...order } = payload;
-
-      const createdItems: OrderItem[] = await Promise.all(
-        items.map(async ({ productId, optionId, quantity }) => {
-          const product: Product = await this.productService.findProductById(productId, ["options"]);
-          const option: Option = product.options.find(({ _id }) => _id == optionId);
-
-          if (!product || product.isDeleted) {
-            throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
-          }
-
-          if (!option) {
-            throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
-          }
-
-          if (option.stock <= 0 || option.stock < quantity) {
-            throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
-          }
-
-          this.productService.updateProductOptionById(optionId, {
-            stock: option.stock - quantity,
-          });
-
-          const createdItem = await this.orderItemModel.create(
-            [
-              {
-                product: product,
-                cost: product.currentCost,
-                option: option,
-                quantity,
-              },
-            ],
-            { session },
-          );
-
-          return await createdItem[0].populate("cost");
-        }),
+      const createdItems = await Promise.all(
+        payload.items.map((item) => this.createOrderItem(item.productId, item.optionId, item.quantity, session)),
       );
 
-      const createdOrder: Order = await this.orderModel.create({
-        ...order,
+      const { totalCost, discountCost } = this.calculateTotalCost(createdItems);
+
+      return this.orderModel.create({
+        ...payload,
         items: createdItems.map(({ _id }) => new Types.ObjectId(_id)),
         user: new Types.ObjectId(userId),
+        totalCost: totalCost,
+        discountCost: discountCost,
       });
-
-      return createdOrder;
     });
   }
 
-  async processOrder(orderId: string, payload: ProcessOrderPayload, ipAddress: string, res: Response) {
-    const session: ClientSession = await this.orderModel.db.startSession();
+  async processOrder(
+    orderId: string,
+    userId: string,
+    payload: ProcessOrderPayload,
+    ipAddress: string,
+  ): Promise<string> {
+    const session = await this.orderModel.db.startSession();
 
     return withMutateTransaction(session, async () => {
-      const order: Order = await (
-        await this.orderModel.findOneAndUpdate({ _id: orderId }, payload, { new: true, session })
-      ).populate("items");
+      const { addressCode, ...updates } = payload;
+      const [wardCode, districtId] = payload.addressCode;
+
+      const existedOrder = await this.orderModel
+        .findById(orderId)
+        .select(["_id", "totalCost", "items", "discountCost"])
+        .populate({
+          path: "items",
+          populate: {
+            path: "product",
+            model: "Product",
+            select: "name",
+          },
+          select: ["quantity", "product"],
+        })
+        .session(session);
+
+      if (!existedOrder) {
+        throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+      }
+
+      console.log(existedOrder);
+
+      const shippingCost: number = await this.deliveryService.calcFee(
+        existedOrder.totalCost,
+        parseInt(districtId),
+        wardCode,
+        existedOrder.items.map(({ quantity, product }) => ({
+          quantity,
+          name: product.name,
+          ...this.deliveryService.getPackageItemInfo(quantity),
+        })),
+      );
+
+      const transactionAmount = existedOrder.totalCost + shippingCost - existedOrder.discountCost;
+      const orderTransaction: OrderTransaction = await this.paymentService.createPendingTransaction(
+        transactionAmount,
+        session,
+      );
+
+      const order = await this.orderModel
+        .findOneAndUpdate(
+          { _id: orderId },
+          {
+            ...updates,
+            addressCode,
+            shippingCost,
+            transaction: orderTransaction._id,
+          },
+          { new: true, session },
+        )
+        .populate({
+          path: "items",
+          populate: {
+            path: "cost",
+            model: "Cost",
+          },
+          model: "OrderItem",
+        })
+        .exec();
 
       if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
 
-      const totalCost: number = order.items.reduce((prev, current) => {
-        const { saleCost, discountPercentage } = current.cost;
-
-        const discountCost = (saleCost * discountPercentage) / 100;
-
-        return (saleCost - discountCost) * current.quantity + prev;
-      }, 0);
+      if (userId) {
+        await this.cartService.deleteCartItem(
+          userId,
+          order.items.map(({ _id }) => new Types.ObjectId(_id)),
+        );
+      }
 
       if (order.paymentMethod === PaymentMethod.VNPAY) {
-        const paymentUrl: string = await this.createPaymentUrl(
-          totalCost,
+        return await this.paymentService.createPaymentUrl(
+          transactionAmount,
           order._id,
           VNPAY_FASHION_PRODUCT_TYPE,
-          `Đơn hàng Ivy cho ${order.name}`,
+          `Order ${order.name}`,
           ipAddress,
         );
-
-        res.redirect(paymentUrl);
-        return order;
       }
+
+      return `${this.configService.get("CLIENT_URL")}/order/result?id=${orderId}`;
     });
   }
 
-  async paymentCallback(request: Request, response: Response): Promise<void> {
-    const { vnp_TransactionStatus, vnp_TxnRef: orderId } = request.query;
-    const clientBaseUrl: string = this.configService.get<string>("CLIENT_PROD_URL");
-    const returnRoute = `${clientBaseUrl}/order/result`;
-
-    if (vnp_TransactionStatus === VnpayTransactionStatus.SUCCESS) {
-      await this.orderModel.findByIdAndUpdate(
-        orderId,
-        {
-          status: OrderStatus.PREPARING,
-        },
-        { new: true },
-      );
-    }
-
-    const redirectUrl: string = `${returnRoute}?id=${orderId}&status=${vnp_TransactionStatus}`;
-
-    response.redirect(redirectUrl);
+  async updateOrder(orderId: string, updates: UpdateOrderPayload): Promise<Order> {
+    const order = await this.orderModel.findByIdAndUpdate(orderId, updates, { new: true });
+    if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+    return order;
   }
 
-  async updateOrder(id: string, updates: UpdateOrderPayload): Promise<Order> {
-    const order: Order = await this.orderModel.findByIdAndUpdate(id, updates);
+  async requestCancelOrder(orderId: string, userId: string): Promise<boolean> {
+    const order: Order = await this.findOrder(orderId, ["status", "user"]);
 
-    if (!order) {
-      throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+    if (!!order.user && order.user.toString() != userId) {
+      throw new ForbiddenException(ErrorMessage.FORBIDDEN);
     }
+
+    if (
+      order.status != OrderStatus.PREPARING &&
+      order.status != OrderStatus.CANCELED &&
+      order.status != OrderStatus.COMPLETED
+    ) {
+      throw new NotAcceptableException(ErrorMessage.ORDER_CANT_CANCEL);
+    }
+
+    await this.orderModel.updateOne({ _id: orderId }, { status: OrderStatus.CANCELING });
+
+    return true;
+  }
+
+  async cancelOrder(orderId: string, payload: CancelOrderPayload, ipAddress: string): Promise<void> {
+    const order: Order = await this.findOrder(orderId, ["transaction", "email", "status", "name"], {
+      path: "transaction",
+      model: "OrderTransaction",
+    });
+
+    if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
+
+    const session: ClientSession = await this.orderModel.db.startSession();
+
+    return await withMutateTransaction<void>(session, async () => {
+      const updateResult = await this.orderModel.updateOne(
+        { _id: orderId },
+        { status: OrderStatus.CANCELED },
+        { session },
+      );
+
+      if (updateResult.modifiedCount <= 0) {
+        throw new InternalServerErrorException(ErrorMessage.ORDER_CANCEL_FAILED);
+      }
+
+      await this.paymentService.refundTransaction(
+        order.transaction.amount,
+        orderId,
+        ipAddress,
+        order.transaction.payDate,
+      );
+
+      const mailOptions: ISendMailOptions = {
+        to: order.email,
+        subject: MailSubject.ORDER_CANCELED,
+      };
+
+      if (order.status === OrderStatus.CANCELING) {
+        Object.assign(mailOptions, {
+          template: "order-canceled",
+          context: { user: order.name, orderId: orderId },
+        });
+      } else {
+        const { reason } = payload;
+
+        Object.assign(mailOptions, {
+          template: "order-canceled-by-admin",
+          context: { user: order.name, reason: reason },
+        });
+      }
+
+      this.mailerService.sendMail(mailOptions);
+    });
+  }
+
+  async findOrder(
+    idOrFilter: string | FilterQuery<Order>,
+    select?: string | string[] | Record<string, number | boolean | string | object>,
+    populate?: PopulateOptions | Array<PopulateOptions | string>,
+    force: boolean = false,
+    cacheKey: string = "",
+  ): Promise<Order> {
+    const boundCacheKey: string = `${ORDER_CACHE_PREFIX}:${JSON.stringify(idOrFilter)}:${JSON.stringify(select)}:${cacheKey}`;
+
+    const cachedOrder = force ? null : await this.cacheService.get<Order>(ORDER_CACHE_PREFIX);
+
+    if (cachedOrder) return cachedOrder;
+
+    const query = this.orderModel.findById(idOrFilter);
+
+    if (select) {
+      query.select(select);
+    }
+
+    if (populate) {
+      query.populate(populate);
+    }
+
+    const order = await query.exec();
+
+    await this.cacheService.set(boundCacheKey, order);
 
     return order;
   }
 
-  private async createPaymentUrl(
-    amount: number,
-    orderId: string,
-    orderType: string | number,
-    orderDescription: string,
-    ipAddr: string,
-  ): Promise<string> {
-    try {
-      const tmnCode = this.configService.get<string>("VNP_TMN_CODE");
-      const secretKey = this.configService.get<string>("VNP_HASH_SECRET");
-      const vnpUrl = this.configService.get<string>("VNP_URL");
-      const returnUrl = this.configService.get<string>("VNP_RETURN_URL");
+  private async createOrderItem(
+    productId: string,
+    optionId: string,
+    quantity: number,
+    session: ClientSession,
+  ): Promise<OrderItem> {
+    const product: Product = await this.productService.findProductById(productId, ["options"]);
+    const option: Option = product.options.find(({ _id }) => _id == optionId);
 
-      const date = new Date();
-      const createDate = format(date, "yyyyMMddHHmmss");
-
-      const currCode = "VND";
-
-      const vnp_Params: Record<string, string | number> = {
-        vnp_Version: "2.1.0",
-        vnp_Command: "pay",
-        vnp_TmnCode: tmnCode,
-        vnp_Locale: "vn",
-        vnp_CurrCode: currCode,
-        vnp_TxnRef: orderId,
-        vnp_OrderInfo: orderDescription,
-        vnp_OrderType: orderType,
-        vnp_Amount: amount * 100,
-        vnp_ReturnUrl: returnUrl,
-        vnp_IpAddr: ipAddr,
-        vnp_CreateDate: createDate,
-      };
-
-      const sortedParams = this.sortObject(vnp_Params);
-
-      const signData = querystring.stringify(sortedParams, { encode: false });
-      const hmac = crypto.createHmac("sha512", secretKey);
-      const signed = hmac.update(Buffer.from(signData, "utf-8")).digest("hex");
-      sortedParams["vnp_SecureHash"] = signed;
-
-      const paymentUrl = `${vnpUrl}?${querystring.stringify(sortedParams, { encode: false })}`;
-
-      return paymentUrl;
-    } catch (error) {
-      throw new InternalServerErrorException(`${ErrorMessage.CREATE_PAYMENT_TRANSACTION_FAILED}: ${error.message}`);
+    if (!product || product.isDeleted) {
+      throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
+
+    if (!option) {
+      throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
+    }
+    if (option.stock < quantity) throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
+
+    await this.optionModel.updateOne({ _id: optionId }, { $inc: { stock: -quantity } }, { session });
+
+    const orderItem = await this.orderItemModel.create(
+      [
+        {
+          product: new Types.ObjectId(productId),
+          option: new Types.ObjectId(optionId),
+          quantity,
+          cost: product.currentCost,
+        },
+      ],
+      { session },
+    );
+
+    return orderItem[0];
   }
 
-  private sortObject(obj: object): object {
-    const sorted: object = {};
+  async getUserOrders(userId: string, pagination: Pagination): Promise<Order[]> {
+    const skip = (pagination.page - 1) * pagination.limit;
+    return await this.orderModel
+      .find({ user: new Types.ObjectId(userId) })
+      .skip(skip)
+      .limit(pagination.limit)
+      .exec();
+  }
 
-    const str: string[] = Object.keys(obj)
-      .map((key) => {
-        return encodeURIComponent(key);
-      })
-      .sort();
+  private calculateTotalCost(items: OrderItem[]): { totalCost: number; discountCost: number } {
+    return items.reduce(
+      (acc, current) => {
+        const discountCost = (current.cost.saleCost * current.cost.discountPercentage) / 100;
+        const itemTotal = (current.cost.saleCost - discountCost) * current.quantity;
 
-    str.forEach((_, index) => {
-      sorted[str[index]] = encodeURIComponent(obj[str[index]]).replace(/%20/g, "+");
-    });
+        acc.discountCost += discountCost * current.quantity;
+        acc.totalCost += itemTotal;
 
-    return sorted;
+        return acc;
+      },
+      { totalCost: 0, discountCost: 0 },
+    );
   }
 }

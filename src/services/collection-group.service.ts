@@ -14,7 +14,7 @@ export class CollectionGroupService {
     @InjectModel(CollectionGroup.name)
     private readonly collectionGroupModel: Model<CollectionGroup>,
     private readonly categoryService: CategoryService,
-  ) { }
+  ) {}
 
   async createCollectionGroup(payload: CreateCollectionGroupPayload): Promise<CollectionGroup> {
     const { categoryId, ...collection } = payload;
@@ -58,7 +58,10 @@ export class CollectionGroupService {
     if (!deletedGroup) throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_NOT_FOUND);
   }
 
-  async getCollectionGroups(page?: number, limit?: number): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
+  async getCollectionGroups(
+    page?: number,
+    limit?: number,
+  ): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
     const baseQuery = this.collectionGroupModel
       .find(NOT_DELETED_FILTER)
       .populate({

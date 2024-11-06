@@ -14,6 +14,6 @@ export async function withMutateTransaction<T>(session: ClientSession, callback:
 
     throw error instanceof HttpException ? error : new InternalServerErrorException(error.message);
   } finally {
-    session.endSession();
+    await session.endSession();
   }
 }

@@ -1,8 +1,9 @@
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { MongooseModule } from "@nestjs/mongoose";
-import { Module } from "@nestjs/common";
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 
 import { CollectionGroupModule } from "./collection-group.module";
+import { PaymentModule } from "@app/modules/payment.module";
 import { CollectionModule } from "./collection.module";
 import { CategoryModule } from "./category.module";
 import { DeliveryModule } from "./delivery.module";
@@ -15,6 +16,7 @@ import { CacheModule } from "./cache.module";
 import { AuthModule } from "./auth.module";
 import { UserModule } from "./user.module";
 import { CartModule } from "./cart.module";
+import { GlobalUserServiceMiddleware } from "@app/middlewares";
 
 @Module({
   imports: [
@@ -30,7 +32,11 @@ import { CartModule } from "./cart.module";
     ContactModule,
     RatingModule,
     DeliveryModule,
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ".env" }),
+    PaymentModule,
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: process.env.NODE_ENV === "production" ? ".env" : ".env.dev",
+    }),
     MongooseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
         return {
@@ -42,4 +48,8 @@ import { CartModule } from "./cart.module";
   ],
   controllers: [TestController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(GlobalUserServiceMiddleware).forRoutes("*");
+  }
+}

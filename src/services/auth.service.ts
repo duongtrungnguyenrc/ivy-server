@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
 import { v4 as uuid } from "uuid";
 import { compare } from "bcrypt";
@@ -22,17 +22,16 @@ export class AuthService {
   ) {}
 
   async validateUser({ email, password }: SignInPayload): Promise<boolean> {
-    const user = await this.userService.findOneUser({ email }, ["password"], [], true);
+    const user = await this.userService.findUser({ email }, ["password"], [], false, ":password");
     if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
 
     const isMatch = await compare(password, user.password);
     if (!isMatch) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
-
     return isMatch;
   }
 
   async signIn({ email }: SignInPayload, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
-    const user = await this.userService.findOneUser({ email });
+    const user = await this.userService.findUser({ email }, ["_id"]);
     const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {

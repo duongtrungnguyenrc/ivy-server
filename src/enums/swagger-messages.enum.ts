@@ -15,8 +15,11 @@ export enum ProductMessages {
 export enum OrderMessages {
   CREATE_ORDER_SUCCESS = "Successfully created order.",
   UPDATE_ORDER_SUCCESS = "Successfully updated order.",
-  PAYMENT_CALLBACK_SUCCESS = "Payment callback processed successfully.",
+  REQUEST_CANCEL_ORDER_SUCCESS = "Successfully to request cancel order.",
+  CANCEL_ORDER_SUCCESS = "Successfully cancelled order.",
+  GET_ORDER_SUCCESS = "Successfully retrieved order.",
   ORDER_ID = "Order id",
+  USER_ORDERS = "User orders",
 }
 
 export enum CollectionGroupMessages {
@@ -54,7 +57,9 @@ export enum AuthMessages {
   REFRESH_TOKEN_SUCCESS = "Successfully refreshed token.",
   FORGOT_PASSWORD_SUCCESS = "Successfully sent forgot password email.",
   RESET_PASSWORD_SUCCESS = "Successfully reset password.",
-  AUTH_TOKEN = "JWT Authorization token",
+  AUTH_TOKEN = "JWT Authorization token with any role",
+  AUTH_ADMIN_TOKEN = "JWT Authorization token with admin role",
+  AUTH_CUSTOMER_TOKEN = "JWT Authorization token with customer role",
 }
 
 export enum RatingMessages {
