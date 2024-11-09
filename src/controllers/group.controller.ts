@@ -1,16 +1,16 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
+import { CollectionGroupService } from "@app/services";
+import { CollectionGroupMessages } from "@app/enums";
+import { Auth, Pagination } from "@app/decorators";
+import { CollectionGroup } from "@app/schemas";
 import {
   CreateCollectionGroupPayload,
   PaginationResponse,
   UpdateCollectionGroupPayload,
   UpdateProductPayload,
 } from "@app/models";
-import { CollectionGroupService } from "@app/services";
-import { CollectionGroupMessages } from "@app/enums";
-import { CollectionGroup } from "@app/schemas";
-import { Auth } from "@app/decorators";
 
 @Controller("group")
 @ApiTags("group")
@@ -37,22 +37,21 @@ export class CollectionGroupController {
   @Auth(["ADMIN"])
   @ApiResponse({ description: CollectionGroupMessages.DELETE_GROUP_SUCCESS })
   @ApiParam({ type: String, name: "id" })
-  deleteCollectionGroup(@Param("id") id: string): Promise<void> {
-    return this.groupService.deleteCollectionGroup(id);
+  deleteCollectionGroup(@Param("id") id: string): Promise<boolean> {
+    return this.groupService.safeDelete(id);
   }
 
   @Get("/")
   @ApiResponse({ description: CollectionGroupMessages.GET_GROUP_SUCCESS, type: CollectionGroup })
   getCollectionGroups(
-    @Query("page") page: number,
-    @Query("limit") limit: number,
+    @Pagination() pagination: Pagination,
   ): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
-    return this.groupService.getCollectionGroups(page, limit);
+    return this.groupService.findMultiplePaging({}, pagination);
   }
 
   @Get("/:id")
   @ApiResponse({ description: CollectionGroupMessages.GET_GROUP_SUCCESS, type: CollectionGroup })
   getCollectionGroup(@Param("id") id: string): Promise<CollectionGroup> {
-    return this.groupService.getCollectionGroup(id);
+    return this.groupService.find(id);
   }
 }

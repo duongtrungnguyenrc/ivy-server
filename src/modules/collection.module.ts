@@ -1,10 +1,10 @@
 import { MongooseModule } from "@nestjs/mongoose";
 import { Module } from "@nestjs/common";
 
+import { CollectionGroupModule } from "./collection-group.module";
 import { Collection, CollectionSchema } from "@app/schemas";
 import { CollectionController } from "@app/controllers";
 import { CollectionService } from "@app/services";
-import { CollectionGroupModule } from "./collection-group.module";
 
 @Module({
   imports: [

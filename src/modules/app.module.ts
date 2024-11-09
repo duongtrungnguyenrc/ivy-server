@@ -3,6 +3,7 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 
 import { CollectionGroupModule } from "./collection-group.module";
+import { GlobalUserServiceMiddleware } from "@app/middlewares";
 import { PaymentModule } from "@app/modules/payment.module";
 import { CollectionModule } from "./collection.module";
 import { CategoryModule } from "./category.module";
@@ -12,11 +13,10 @@ import { ProductModule } from "./product.module";
 import { RatingModule } from "./rating.module";
 import { ContactModule } from "./chat.module";
 import { OrderModule } from "./order.module";
-import { CacheModule } from "./cache.module";
 import { AuthModule } from "./auth.module";
 import { UserModule } from "./user.module";
 import { CartModule } from "./cart.module";
-import { GlobalUserServiceMiddleware } from "@app/middlewares";
+import { CacheModule } from "@app/modules/cache.module";
 
 @Module({
   imports: [

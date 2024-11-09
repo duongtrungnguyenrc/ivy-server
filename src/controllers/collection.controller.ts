@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { ApiPagination, Auth } from "@app/decorators";
+import { ApiPagination, Auth, Pagination } from "@app/decorators";
 import { CollectionService } from "@app/services";
 import { CollectionMessages } from "@app/enums";
 import { Collection } from "@app/schemas";
@@ -31,7 +31,7 @@ export class CollectionController {
   @ApiResponse({ description: CollectionMessages.UPDATE_COLLECTION_SUCCESS, type: Collection })
   @ApiParam({ type: String, name: "id" })
   updateCollection(@Param("id") id: string, @Body() payload: UpdateCollectionPayload): Promise<Collection> {
-    return this.collectionService.updateCollection(id, payload);
+    return this.collectionService.update(id, payload);
   }
 
   @Delete("/:id")
@@ -39,18 +39,15 @@ export class CollectionController {
   @ApiBody({ type: CreateCollectionPayload })
   @ApiResponse({ description: CollectionMessages.DELETE_COLLECTION_SUCCESS })
   @ApiParam({ type: String, name: "id" })
-  deleteCollection(@Param("id") id: string): Promise<void> {
-    return this.collectionService.deleteCollection(id);
+  deleteCollection(@Param("id") id: string): Promise<boolean> {
+    return this.collectionService.delete(id);
   }
 
   @Get("/")
   @ApiPagination()
   @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: Collection })
-  getCollections(
-    @Query("page") page: number,
-    @Query("limit") limit: number,
-  ): Promise<PaginationResponse<Collection> | Collection[]> {
-    return this.collectionService.getCollections({ page, limit });
+  getCollections(@Pagination() pagination: Pagination): Promise<PaginationResponse<Collection> | Collection[]> {
+    return this.collectionService.findMultiplePaging({}, pagination);
   }
 
   @Get("/:id")

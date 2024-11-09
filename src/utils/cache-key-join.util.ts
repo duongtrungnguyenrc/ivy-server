@@ -1,3 +1,3 @@
 export const joinCacheKey = (...segment: string[]) => {
-  return [...segment].join("");
+  return [...segment].filter((key) => !!key).join(":");
 };

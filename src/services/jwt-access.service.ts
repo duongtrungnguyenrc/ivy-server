@@ -26,20 +26,22 @@ export class JwtAccessService {
     const currentTime = Math.floor(Date.now() / 1000);
     const tokenValidTime = (decodedToken["exp"] - currentTime) * 1000;
 
-    this.cacheService.set(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
+    await this.cacheService.set(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
   }
 
   async verifyToken(token: string): Promise<boolean> {
     try {
-      const revokeToken = await this.cacheService.get(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token));
+      if (await this.isRevoked(token)) return false;
 
-      if (revokeToken) return;
-
-      const verifyResult = this.jwtService.verify(token);
-
-      return verifyResult;
+      return !!this.jwtService.verify(token);
     } catch (error) {
       return false;
     }
+  }
+
+  async isRevoked(token: string): Promise<boolean> {
+    const revokedToken = await this.cacheService.get(joinCacheKey(REVOKE_ACCESS_TOKEN_CACHE_PREFIX, token));
+
+    return !!revokedToken;
   }
 }

@@ -1,11 +1,15 @@
 import { HttpException, InternalServerErrorException } from "@nestjs/common";
-import { ClientSession } from "mongoose";
+import { ClientSession, Model, Document } from "mongoose";
 
-export async function withMutateTransaction<T>(session: ClientSession, callback: () => Promise<T>): Promise<T> {
+export async function withMutateTransaction<T extends Document, K = T>(
+  model: Model<T>,
+  callback: (session: ClientSession) => Promise<K> | K,
+): Promise<K> {
+  const session: ClientSession = await model.db.startSession();
   session.startTransaction();
 
   try {
-    const result = await callback();
+    const result = await callback(session);
     await session.commitTransaction();
 
     return result;

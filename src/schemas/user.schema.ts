@@ -1,38 +1,39 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Schema, SchemaFactory } from "@nestjs/mongoose";
 
 import { BaseSchema } from "./base.schema";
 import { Gender, Role } from "@app/enums";
+import { ApiSchemaProp } from "@app/decorators/api-schema-prop.decorator";
 
 @Schema()
 export class User extends BaseSchema {
-  @Prop({ required: true, unique: true })
+  @ApiSchemaProp({ required: true, unique: true })
   email: string;
 
-  @Prop({ type: String, required: true, select: false })
+  @ApiSchemaProp({ type: String, required: true, select: false })
   password: string;
 
-  @Prop()
+  @ApiSchemaProp()
   firstName: string;
 
-  @Prop()
+  @ApiSchemaProp()
   lastName: string;
 
-  @Prop()
+  @ApiSchemaProp()
   birth: Date;
 
-  @Prop({ unique: true, required: false })
+  @ApiSchemaProp({ unique: true, required: false })
   phone: string;
 
-  @Prop()
+  @ApiSchemaProp()
   address: string[];
 
-  @Prop()
+  @ApiSchemaProp()
   addressCode: string[];
 
-  @Prop({ type: String, enum: Gender })
+  @ApiSchemaProp({ type: String, enum: Gender })
   gender: Gender;
 
-  @Prop({ type: String, enum: Role, default: Role.USER })
+  @ApiSchemaProp({ type: String, enum: Role, default: Role.USER })
   role: Role;
 }
 

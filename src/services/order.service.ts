@@ -1,4 +1,4 @@
-import { ClientSession, FilterQuery, Model, PopulateOptions, Types } from "mongoose";
+import { ClientSession, Model, Types } from "mongoose";
 import { ISendMailOptions, MailerService } from "@nestjs-modules/mailer";
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
@@ -12,19 +12,19 @@ import {
 
 import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
 import { Option, Order, OrderItem, OrderTransaction, Product } from "@app/schemas";
+import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod } from "@app/enums";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
+import { RepositoryService } from "@app/services/repository.service";
 import { DeliveryService } from "@app/services/delivery.service";
 import { PaymentService } from "@app/services/payment.service";
-import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod } from "@app/enums";
 import { ProductService } from "./product.service";
 import { withMutateTransaction } from "@app/utils";
 import { CacheService } from "./cache.service";
 import { CartService } from "./cart.service";
 
 @Injectable()
-export class OrderService {
+export class OrderService extends RepositoryService<Order> {
   constructor(
-    @InjectModel(Order.name) private readonly orderModel: Model<Order>,
     @InjectModel(OrderItem.name) private readonly orderItemModel: Model<OrderItem>,
     @InjectModel(Option.name) private readonly optionModel: Model<Option>,
     private readonly deliveryService: DeliveryService,
@@ -32,12 +32,16 @@ export class OrderService {
     private readonly productService: ProductService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
-    private readonly cacheService: CacheService,
     private readonly cartService: CartService,
-  ) {}
+    cacheService: CacheService,
+    @InjectModel(Order.name)
+    orderModel: Model<Order>,
+  ) {
+    super(orderModel, cacheService, ORDER_CACHE_PREFIX);
+  }
 
   async getOrderDetail(id: string): Promise<Order> {
-    const order = await this.findOrder(
+    const order = await this.find(
       id,
       undefined,
       [
@@ -73,16 +77,14 @@ export class OrderService {
   }
 
   async createOrder(payload: CreateOrderPayload, userId: string): Promise<Order> {
-    const session = await this.orderModel.db.startSession();
-
-    return withMutateTransaction(session, async () => {
+    return withMutateTransaction<Order>(this._model, async (session) => {
       const createdItems = await Promise.all(
         payload.items.map((item) => this.createOrderItem(item.productId, item.optionId, item.quantity, session)),
       );
 
       const { totalCost, discountCost } = this.calculateTotalCost(createdItems);
 
-      return this.orderModel.create({
+      return this._model.create({
         ...payload,
         items: createdItems.map(({ _id }) => new Types.ObjectId(_id)),
         user: new Types.ObjectId(userId),
@@ -98,13 +100,11 @@ export class OrderService {
     payload: ProcessOrderPayload,
     ipAddress: string,
   ): Promise<string> {
-    const session = await this.orderModel.db.startSession();
-
-    return withMutateTransaction(session, async () => {
+    return withMutateTransaction<Order, string>(this._model, async (session) => {
       const { addressCode, ...updates } = payload;
       const [wardCode, districtId] = payload.addressCode;
 
-      const existedOrder = await this.orderModel
+      const existedOrder = await this._model
         .findById(orderId)
         .select(["_id", "totalCost", "items", "discountCost"])
         .populate({
@@ -121,8 +121,6 @@ export class OrderService {
       if (!existedOrder) {
         throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
       }
-
-      console.log(existedOrder);
 
       const shippingCost: number = await this.deliveryService.calcFee(
         existedOrder.totalCost,
@@ -141,7 +139,7 @@ export class OrderService {
         session,
       );
 
-      const order = await this.orderModel
+      const order = await this._model
         .findOneAndUpdate(
           { _id: orderId },
           {
@@ -186,13 +184,13 @@ export class OrderService {
   }
 
   async updateOrder(orderId: string, updates: UpdateOrderPayload): Promise<Order> {
-    const order = await this.orderModel.findByIdAndUpdate(orderId, updates, { new: true });
+    const order = await this._model.findByIdAndUpdate(orderId, updates, { new: true });
     if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
     return order;
   }
 
   async requestCancelOrder(orderId: string, userId: string): Promise<boolean> {
-    const order: Order = await this.findOrder(orderId, ["status", "user"]);
+    const order: Order = await this.find(orderId, ["status", "user"]);
 
     if (!!order.user && order.user.toString() != userId) {
       throw new ForbiddenException(ErrorMessage.FORBIDDEN);
@@ -206,27 +204,21 @@ export class OrderService {
       throw new NotAcceptableException(ErrorMessage.ORDER_CANT_CANCEL);
     }
 
-    await this.orderModel.updateOne({ _id: orderId }, { status: OrderStatus.CANCELING });
+    await this._model.updateOne({ _id: orderId }, { status: OrderStatus.CANCELING });
 
     return true;
   }
 
   async cancelOrder(orderId: string, payload: CancelOrderPayload, ipAddress: string): Promise<void> {
-    const order: Order = await this.findOrder(orderId, ["transaction", "email", "status", "name"], {
+    const order: Order = await this.find(orderId, ["transaction", "email", "status", "name"], {
       path: "transaction",
       model: "OrderTransaction",
     });
 
     if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
 
-    const session: ClientSession = await this.orderModel.db.startSession();
-
-    return await withMutateTransaction<void>(session, async () => {
-      const updateResult = await this.orderModel.updateOne(
-        { _id: orderId },
-        { status: OrderStatus.CANCELED },
-        { session },
-      );
+    return await withMutateTransaction<Order, void>(this._model, async (session) => {
+      const updateResult = await this._model.updateOne({ _id: orderId }, { status: OrderStatus.CANCELED }, { session });
 
       if (updateResult.modifiedCount <= 0) {
         throw new InternalServerErrorException(ErrorMessage.ORDER_CANCEL_FAILED);
@@ -262,43 +254,13 @@ export class OrderService {
     });
   }
 
-  async findOrder(
-    idOrFilter: string | FilterQuery<Order>,
-    select?: string | string[] | Record<string, number | boolean | string | object>,
-    populate?: PopulateOptions | Array<PopulateOptions | string>,
-    force: boolean = false,
-    cacheKey: string = "",
-  ): Promise<Order> {
-    const boundCacheKey: string = `${ORDER_CACHE_PREFIX}:${JSON.stringify(idOrFilter)}:${JSON.stringify(select)}:${cacheKey}`;
-
-    const cachedOrder = force ? null : await this.cacheService.get<Order>(ORDER_CACHE_PREFIX);
-
-    if (cachedOrder) return cachedOrder;
-
-    const query = this.orderModel.findById(idOrFilter);
-
-    if (select) {
-      query.select(select);
-    }
-
-    if (populate) {
-      query.populate(populate);
-    }
-
-    const order = await query.exec();
-
-    await this.cacheService.set(boundCacheKey, order);
-
-    return order;
-  }
-
   private async createOrderItem(
     productId: string,
     optionId: string,
     quantity: number,
     session: ClientSession,
   ): Promise<OrderItem> {
-    const product: Product = await this.productService.findProductById(productId, ["options"]);
+    const product: Product = await this.productService.find(productId, undefined, ["options"]);
     const option: Option = product.options.find(({ _id }) => _id == optionId);
 
     if (!product || product.isDeleted) {
@@ -329,7 +291,7 @@ export class OrderService {
 
   async getUserOrders(userId: string, pagination: Pagination): Promise<Order[]> {
     const skip = (pagination.page - 1) * pagination.limit;
-    return await this.orderModel
+    return await this._model
       .find({ user: new Types.ObjectId(userId) })
       .skip(skip)
       .limit(pagination.limit)

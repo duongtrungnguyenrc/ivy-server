@@ -29,13 +29,19 @@ export class JwtRefreshService {
     this.cacheService.set(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token), token, tokenValidTime);
   }
 
-  async verifyToken(token: string): Promise<any> {
-    const revokeToken = await this.cacheService.get(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token));
+  async verifyToken(token: string): Promise<boolean> {
+    try {
+      if (await this.isRevoked(token)) return false;
 
-    if (revokeToken) return;
+      return !!this.jwtService.verify(token);
+    } catch (error) {
+      return false;
+    }
+  }
 
-    const verifyResult = this.jwtService.verify(token);
+  async isRevoked(token: string): Promise<boolean> {
+    const revokedToken = await this.cacheService.get(joinCacheKey(REVOKE_REFRESH_TOKEN_CACHE_PREFIX, token));
 
-    return verifyResult;
+    return !!revokedToken;
   }
 }

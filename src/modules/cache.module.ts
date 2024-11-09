@@ -1,4 +1,4 @@
-import { DynamicModule, Global, Module } from "@nestjs/common";
+import { DynamicModule, Module } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import KeyvRedis from "@keyv/redis";
 import Keyv from "keyv";
@@ -6,7 +6,6 @@ import Keyv from "keyv";
 import { CACHE_PROVIDE } from "@app/constants";
 import { CacheService } from "@app/services";
 
-@Global()
 @Module({})
 export class CacheModule {
   static forRoot(): DynamicModule {
@@ -18,7 +17,7 @@ export class CacheModule {
           useFactory: (configService: ConfigService) => {
             return new Keyv({
               store: new KeyvRedis(configService.get<string>("REDIS_URL")),
-              namespace: "root",
+              namespace: "root", // Namespace mặc định
               ttl: Number(configService.get<number>("REDIS_TTL")),
             });
           },
@@ -26,6 +25,7 @@ export class CacheModule {
         },
         CacheService,
       ],
+      global: true,
       exports: [CACHE_PROVIDE, CacheService],
     };
   }
@@ -38,10 +38,9 @@ export class CacheModule {
           provide: CACHE_PROVIDE,
           useFactory: (configService: ConfigService) => {
             return new Keyv({
-              store: new KeyvRedis(configService.get<string>("REDIS_URL"), {
-                ttl: async () => configService.get<number>("REDIS_TTL"),
-              }),
+              store: new KeyvRedis(configService.get<string>("REDIS_URL")),
               namespace: namespace || "root",
+              ttl: Number(configService.get<number>("REDIS_TTL")),
             });
           },
           inject: [ConfigService],

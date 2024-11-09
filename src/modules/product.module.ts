@@ -2,10 +2,10 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { Module } from "@nestjs/common";
 
 import { Cost, CostSchema, Option, OptionSchema, Product, ProductSchema } from "@app/schemas";
-import { CollectionModule } from "./collection.module";
+import { ProductOptionService, ProductService, CostService } from "@app/services";
+import { CollectionGroupModule } from "@app/modules/collection-group.module";
+import { CollectionModule } from "@app/modules/collection.module";
 import { ProductController } from "@app/controllers";
-import { ProductService } from "@app/services";
-import { CollectionGroupModule } from "./collection-group.module";
 
 @Module({
   imports: [
@@ -27,7 +27,7 @@ import { CollectionGroupModule } from "./collection-group.module";
     ]),
   ],
   controllers: [ProductController],
-  providers: [ProductService],
-  exports: [ProductService],
+  providers: [ProductService, ProductOptionService, CostService],
+  exports: [ProductService, ProductOptionService, CostService],
 })
 export class ProductModule {}

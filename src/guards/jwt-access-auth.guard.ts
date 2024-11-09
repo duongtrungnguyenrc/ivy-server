@@ -3,10 +3,10 @@ import { AuthGuard } from "@nestjs/passport";
 import { Reflector } from "@nestjs/core";
 import { Observable } from "rxjs";
 
-import { RoleType } from "@app/decorators";
-import { getTokenFromRequest } from "@app/utils";
-import { ErrorMessage } from "@app/enums";
 import { JwtAccessService } from "@app/services";
+import { getTokenFromRequest } from "@app/utils";
+import { ValidRole } from "@app/decorators";
+import { ErrorMessage } from "@app/enums";
 
 @Injectable()
 export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
@@ -22,14 +22,18 @@ export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
   }
 
   handleRequest(_: any, user: any, ___: any, context: ExecutionContext) {
-    const roles = this.reflector.get<RoleType[]>("roles", context.getHandler());
     const request = context.switchToHttp().getRequest();
-
     const authToken = getTokenFromRequest(request);
+
+    if (!this.jwtAccessService.isRevoked(authToken)) throw new ForbiddenException(ErrorMessage.FORBIDDEN);
+
+    const roles = this.reflector.get<ValidRole[]>("roles", context.getHandler());
 
     if (!authToken) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
     const decodedToken: JwtPayload = this.jwtAccessService.decodeToken(authToken);
+
+    if (!decodedToken) throw new ForbiddenException(ErrorMessage.FORBIDDEN);
 
     if (!roles || roles.includes("*")) {
       return user;

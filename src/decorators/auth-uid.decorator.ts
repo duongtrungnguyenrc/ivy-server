@@ -16,7 +16,7 @@ export const AuthUid = createParamDecorator(async (_, ctx: ExecutionContext): Pr
   if (!decodedId) return null;
 
   const userService: UserService = request["userService"] as UserService;
-  const existingUser = await userService.findUser(decodedId, ["_id"], [], false, `id`);
+  const existingUser = await userService.find(decodedId, ["_id"], [], false, `id`);
 
   return existingUser?._id || null;
 });

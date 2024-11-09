@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
-import { ClientSession, Model } from "mongoose";
+import { Model } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
 import { CreateMessagePayload, InfiniteResponse, SendEmailPayload } from "@app/models";
@@ -77,18 +77,14 @@ export class ContactService {
 
     const nextCursor: number = page < pages ? page + 1 : undefined;
 
-    const response: InfiniteResponse<ChatRoom> = {
+    return {
       nextCursor,
       data: rooms,
     };
-
-    return response;
   }
 
   async createMessage(payload: CreateMessagePayload): Promise<ChatMessage> {
-    const session: ClientSession = await this.chatMessageModel.db.startSession();
-
-    return withMutateTransaction(session, async () => {
+    return withMutateTransaction<ChatMessage>(this.chatMessageModel, async (session) => {
       const { email, ...message } = payload;
 
       const [createdMessage]: ChatMessage[] = await this.chatMessageModel.create(

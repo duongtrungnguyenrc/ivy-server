@@ -2,7 +2,7 @@ import { ConfigService } from "@nestjs/config";
 import { Global, Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 
-import { JwtRefreshService } from "../services";
+import { JwtRefreshService } from "@app/services";
 
 @Global()
 @Module({

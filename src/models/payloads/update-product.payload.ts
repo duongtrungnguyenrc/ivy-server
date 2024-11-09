@@ -1,101 +1,135 @@
-import { IsArray, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from "class-validator";
+import { IsArray, IsEnum, IsMongoId, IsNotEmpty, IsNumber, IsObject, IsOptional, IsString } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
+import { Size } from "@app/enums";
 
 class UpdateOptionPayload {
-  @ApiProperty()
+  @ApiProperty({ description: "Unique identifier of the option" })
   @IsMongoId()
-  _id: string;
+  @IsOptional()
+  _id?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Hexadecimal color code for the option" })
   @IsOptional()
   @IsString()
   colorHexCode?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Name of the color for the option" })
   @IsOptional()
   @IsString()
   colorName?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Current stock quantity for the option" })
   @IsOptional()
   @IsNumber()
   stock?: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Size of the option" })
   @IsOptional()
   @IsString()
   size?: string;
 }
 
-class UpdateCostPayload {
-  @ApiProperty()
-  @IsMongoId()
-  _id: string;
+class CreateOptionPayload {
+  @ApiProperty({ description: "Hexadecimal color code for the new option" })
+  @IsString()
+  @IsNotEmpty({ message: "Color hex code cannot be empty" })
+  colorHexCode: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Name of the color for the new option" })
+  @IsString()
+  @IsNotEmpty({ message: "Color name cannot be empty" })
+  colorName: string;
+
+  @ApiProperty({ description: "Size of the new option" })
+  @IsEnum(Size)
+  @IsNotEmpty({ message: "Size cannot be empty" })
+  size: Size;
+
+  @ApiProperty({ description: "Initial stock quantity for the new option" })
+  @IsNumber()
+  @IsNotEmpty({ message: "Stock quantity cannot be empty" })
+  stock: number;
+}
+
+class UpdateCostPayload {
+  @ApiProperty({ description: "Unique identifier of the cost data" })
+  @IsOptional()
+  @IsMongoId()
+  _id?: string;
+
+  @ApiProperty({ description: "Cost of ingredients for the product" })
   @IsOptional()
   @IsNumber()
   ingredientCost?: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Production cost of the product" })
   @IsOptional()
   @IsNumber()
   productionCost?: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Sales price of the product" })
   @IsOptional()
   @IsNumber()
   saleCost?: number;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Discount percentage for the product" })
   @IsOptional()
   @IsNumber()
   discountPercentage?: number;
 }
 
 export class UpdateProductPayload {
-  @ApiProperty()
+  @ApiProperty({ description: "Name of the product" })
   @IsNotEmpty()
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Description of the product" })
   @IsNotEmpty()
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Array of new image URLs to add to the product" })
   @IsOptional()
   @IsArray()
-  images?: string[];
+  newImages?: string[];
 
-  @ApiProperty()
+  @ApiProperty({ description: "Array of image URLs to delete from the product" })
+  @IsOptional()
+  @IsArray()
+  deleteImages?: string[];
+
+  @ApiProperty({ description: "Preservation instructions for the product" })
   @IsNotEmpty()
   @IsOptional()
   @IsString()
   preserveDescription?: string;
 
-  @ApiProperty()
+  @ApiProperty({ description: "Material of the product" })
   @IsNotEmpty()
   @IsOptional()
   @IsString()
   material?: string;
 
-  @ApiProperty()
-  @IsNotEmpty()
-  @IsOptional()
-  @IsString()
-  collectionId?: string;
-
-  @ApiProperty({ type: [UpdateOptionPayload] })
+  @ApiProperty({ description: "Array of options to update for the product", type: [UpdateOptionPayload] })
   @IsOptional()
   @IsArray()
-  options?: UpdateOptionPayload[];
+  updateOptions?: UpdateOptionPayload[];
 
-  @ApiProperty({ type: UpdateCostPayload })
+  @ApiProperty({ description: "Array of new options to add to the product", type: [CreateOptionPayload] })
+  @IsOptional()
+  @IsArray()
+  newOptions?: CreateOptionPayload[];
+
+  @ApiProperty({ description: "Array of option IDs to delete from the product" })
+  @IsOptional()
+  @IsArray()
+  deleteOptions?: string[];
+
+  @ApiProperty({ description: "Cost details to update for the product", type: UpdateCostPayload })
   @IsOptional()
   @IsObject()
-  cost?: UpdateCostPayload;
+  newCost?: UpdateCostPayload;
 }

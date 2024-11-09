@@ -27,7 +27,7 @@ export class UserController {
 
   @Get("/access")
   @ApiPagination()
-  @ApiResponse({ description: UserMessages.GET_ACCESS_HISTORY_SUCCESS, type: [AccessRecord] })
+  @ApiResponse({ description: UserMessages.GET_ACCESS_HISTORY_SUCCESS, type: PaginationResponse<AccessRecord> })
   async getAccessHistory(
     @AuthUid() userId: string,
     @Pagination() pagination: Pagination,

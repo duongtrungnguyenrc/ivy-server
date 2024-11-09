@@ -38,9 +38,8 @@ export class CartService {
 
   async addCartItem(payload: AddCartItemPayload, userId: string): Promise<Cart> {
     const { productId, optionId, quantity } = payload;
-    const session = await this.cartItemModel.db.startSession();
 
-    return withMutateTransaction(session, async () => {
+    return withMutateTransaction<CartItem, Cart>(this.cartItemModel, async (session) => {
       const productExists = await this.productService.checkProductAndOptionExist(productId, optionId);
 
       if (!productExists) {
@@ -52,7 +51,7 @@ export class CartService {
         { session },
       );
 
-      const cart = await this.cartModel
+      return await this.cartModel
         .findOneAndUpdate(
           { user: new Types.ObjectId(userId) },
           { $push: { items: newItems[0] } },
@@ -60,8 +59,6 @@ export class CartService {
         )
         .populate(this.getCartPopulationOptions())
         .exec();
-
-      return cart;
     });
   }
 

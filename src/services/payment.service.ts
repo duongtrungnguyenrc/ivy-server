@@ -5,8 +5,8 @@ import { format } from "date-fns";
 import * as crypto from "crypto";
 import { stringify } from "qs";
 
-import { VnpayTransactionCommand } from "@app/enums/vnpay-command.enum";
 import { ErrorMessage, TransactionStatus, VnpayTransactionRefundType, VnpayTransactionStatus } from "@app/enums";
+import { VnpayTransactionCommand } from "@app/enums/vnpay-command.enum";
 import { OrderService } from "@app/services/order.service";
 import { Order, OrderTransaction } from "@app/schemas";
 import { ClientSession, Model } from "mongoose";
@@ -75,7 +75,7 @@ export class PaymentService {
   async paymentCallback(params: Vnp.CallbackParams, response: Response) {
     const { vnp_TransactionStatus: status, vnp_PayDate: payDate, vnp_TxnRef: orderId } = params;
 
-    const order: Order = await this.orderService.findOrder(orderId, ["transaction"]);
+    const order: Order = await this.orderService.find(orderId, ["transaction"]);
 
     if (!order) {
       throw new NotAcceptableException(`${ErrorMessage.ORDER_NOT_FOUND}: ${orderId}`);

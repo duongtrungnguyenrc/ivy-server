@@ -5,9 +5,9 @@ import { IAuthGuard, Type } from "@nestjs/passport";
 import { JWTAccessAuthGuard } from "@app/guards";
 import { AuthMessages, Role } from "@app/enums";
 
-export type RoleType = `${Role}` | "*";
+export type ValidRole = `${Role}` | "*";
 
-export const Auth = (roles: RoleType[] = ["*"], guard: Type<IAuthGuard> = JWTAccessAuthGuard) => {
+export const Auth = (roles: ValidRole[] = ["*"], guard: Type<IAuthGuard> = JWTAccessAuthGuard) => {
   const tokenDescription: string = roles.includes("ADMIN")
     ? AuthMessages.AUTH_ADMIN_TOKEN
     : roles.includes("USER")

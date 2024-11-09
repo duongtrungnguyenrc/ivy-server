@@ -6,6 +6,7 @@ import { ApiPagination, Auth, Pagination } from "@app/decorators";
 import { ProductService } from "@app/services";
 import { ProductMessages } from "@app/enums";
 import { Product } from "@app/schemas";
+import { NOT_DELETED_FILTER } from "@app/constants";
 
 @Controller("product")
 @ApiTags("product")
@@ -15,25 +16,25 @@ export class ProductController {
   @Get("/all")
   @ApiPagination()
   @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
-  getAllProducts(@Pagination() pagination: Pagination): Promise<PaginationResponse<Product>> {
-    return this.productService.getAllProduct(pagination);
+  async getAllProducts(@Pagination() pagination: Pagination): Promise<PaginationResponse<Product>> {
+    return await this.productService.findMultiplePaging(NOT_DELETED_FILTER, pagination);
   }
 
   @Get("/:id")
   @ApiParam({ type: String, name: "id", description: ProductMessages.PRODUCT_ID })
   @ApiResponse({ type: Product })
-  getProduct(@Param("id") id: string): Promise<Product> {
-    return this.productService.getProduct(id);
+  async getProduct(@Param("id") id: string): Promise<Product> {
+    return await this.productService.getProductDetail(id);
   }
 
   @Get("/")
   @ApiPagination()
   @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
-  getProductsByCollection(
+  async getProductsByCollection(
     @Query("collection") collectionId: string,
     @Pagination() pagination: Pagination,
   ): Promise<PaginationResponse<Product>> {
-    return this.productService.getProductsByCollection(collectionId, pagination);
+    return await this.productService.getProductsByCollection(collectionId, pagination);
   }
 
   @Post("/")
@@ -49,8 +50,8 @@ export class ProductController {
   @ApiParam({ type: String, name: "id", description: ProductMessages.PRODUCT_ID })
   @ApiBody({ type: UpdateProductPayload })
   @ApiResponse({ description: ProductMessages.UPDATE_PRODUCT_SUCCESS, type: Product })
-  updateProduct(@Param("id") id: string, @Body() payload: UpdateProductPayload): Promise<Product> {
-    return this.productService.updateProduct(id, payload);
+  async updateProduct(@Param("id") id: string, @Body() payload: UpdateProductPayload): Promise<Product> {
+    return await this.productService.updateProduct(id, payload);
   }
 
   @Delete("/:id")
@@ -58,6 +59,6 @@ export class ProductController {
   @ApiParam({ type: String, name: "id", description: ProductMessages.PRODUCT_ID })
   @ApiResponse({ description: ProductMessages.DELETE_PRODUCT_SUCCESS })
   deleteProduct(@Param("id") id: string): Promise<void> {
-    return this.productService.deleteProduct(id);
+    return this.productService.safeDeleteProduct(id);
   }
 }

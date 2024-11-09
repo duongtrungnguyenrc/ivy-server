@@ -1,55 +1,33 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from "@nestjs/common";
-import { ClientSession, Document, Model, Types, UpdateQuery } from "mongoose";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { isValidObjectId, Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
 import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
+import { ProductOptionService } from "@app/services/product-option.service";
 import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX } from "@app/constants";
-import { Collection, Cost, Option, Product } from "@app/schemas";
-import { joinCacheKey, withMutateTransaction } from "@app/utils";
-import { CollectionService } from "./collection.service";
-import { CacheService } from "./cache.service";
+import { CollectionService } from "@app/services/collection.service";
+import { RepositoryService } from "@app/services/repository.service";
+import { CacheService } from "@app/services/cache.service";
+import {Collection, Cost, Option, Product} from "@app/schemas";
+import { CostService } from "@app/services/cost.service";
+import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
-export class ProductService {
+export class ProductService extends RepositoryService<Product> {
   constructor(
-    @InjectModel(Product.name)
-    private readonly productModel: Model<Product>,
-    @InjectModel(Option.name)
-    private readonly optionModel: Model<Option>,
-    @InjectModel(Cost.name)
-    private readonly costModel: Model<Cost>,
+    private readonly costService: CostService,
+    private readonly productOptionService: ProductOptionService,
     private readonly collectionService: CollectionService,
-    private readonly cacheService: CacheService,
-  ) {}
-
-  async getAllProduct({ page, limit }: Pagination): Promise<PaginationResponse<Product>> {
-    const skip = (page - 1) * limit;
-
-    const [products, productCount] = await Promise.all([
-      this.productModel
-        .find(NOT_DELETED_FILTER)
-        .select("_id name description images")
-        .populate(["options", "currentCost"])
-        .skip(skip)
-        .limit(limit)
-        .sort({ createdAt: -1 })
-        .exec(),
-      this.productModel.countDocuments(NOT_DELETED_FILTER).exec(),
-    ]);
-
-    return {
-      meta: {
-        page,
-        limit,
-        pages: Math.ceil(productCount / limit),
-      },
-      data: products,
-    };
+    @InjectModel(Product.name)
+    productModel: Model<Product>,
+    cacheService: CacheService,
+  ) {
+    super(productModel, cacheService, PRODUCT_CACHE_PREFIX);
   }
 
-  async getProduct(id: string): Promise<Product> {
-    const product: Product = await this.findProductById(id, ["currentCost", "options"]);
+  async getProductDetail(id: string): Promise<Product> {
+    const product: Product = await this.find(id, undefined, ["currentCost", "options"]);
 
     if (!product) throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
 
@@ -57,45 +35,27 @@ export class ProductService {
   }
 
   async getProductsByCollection(id: string, pagination: Pagination): Promise<PaginationResponse<Product>> {
-    const { page, limit } = pagination;
-
-    const collection: Collection = await this.collectionService.findCollectionById(id, [], true);
+    const collection: Collection = await this.collectionService.find(id, ["products"]);
 
     if (!collection) {
       throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
     }
 
-    const skip = (page - 1) * limit;
-
-    const totalPages = Math.ceil(collection.products.length / limit);
-
-    const products = await this.productModel
-      .find({
+    return this.findMultiplePaging(
+      {
         $and: [{ _id: { $in: collection.products } }, NOT_DELETED_FILTER],
-      })
-      .skip(skip)
-      .limit(limit)
-      .populate(["currentCost", "options"])
-      .exec();
-
-    return {
-      data: products,
-      meta: {
-        page: page,
-        limit: limit,
-        pages: totalPages,
       },
-    };
+      pagination,
+      undefined,
+      ["options", "currentCost"],
+    );
   }
 
   async createProduct(payload: CreateProductPayload): Promise<Product> {
-    const { options, cost, collectionId, ...product } = payload;
-
-    const session: ClientSession = await this.productModel.db.startSession();
-
-    return withMutateTransaction(session, async () => {
-      const createdCost = await this.costModel.create([cost], { session });
-      const createdOptions = await this.optionModel.insertMany(options, { session });
+    return withMutateTransaction<Product>(this._model, async (session) => {
+      const { options, cost, collectionId, ...product } = payload;
+      const createdCost = await this.costService.create([cost], { session });
+      const createdOptions = await this.productOptionService.create(options, { session });
 
       const createProductPayload = {
         ...product,
@@ -104,83 +64,126 @@ export class ProductService {
         costs: [new Types.ObjectId(createdCost[0]._id)],
       };
 
-      const createdProduct = await this.productModel.create([createProductPayload], { session });
+      const [createdProduct] = await this.create([createProductPayload], { session });
 
-      this.collectionService.addProduct(collectionId, createdProduct[0]);
+      await this.collectionService.update(
+        collectionId,
+        {
+          $push: {
+            products: createdProduct._id,
+          },
+        },
+        { session },
+      );
 
-      await session.commitTransaction();
-
-      return createdProduct[0];
+      return createdProduct;
     });
   }
 
-  async updateProduct(id: string, payload: UpdateProductPayload): Promise<Product> {
-    const { options, cost, collectionId, ...product } = payload;
+  async updateProduct(productId: string, updateData: UpdateProductPayload): Promise<Product> {
+    return await withMutateTransaction(this._model, async (session) => {
+      const product = await this._model.findById(productId).session(session);
 
-    const collectionQuery: Promise<Collection> = this.collectionService.findCollectionById(collectionId);
+      if (!product) {
+        throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
+      }
 
-    const createCostQuery: Promise<Cost> = this.costModel.findByIdAndUpdate(cost._id, cost);
+      const { newOptions, updateOptions, deleteOptions, newImages, deleteImages, newCost, ...updates } = updateData;
+      const pullUpdate = new Map<keyof Product, Array<any>>();
+      const pushUpdate = new Map<keyof Product, Array<any>>();
+      const parallelCallStack = new Map<string, Promise<any>>();
 
-    const updateOptionsQuery: Promise<
-      (string | (Document<unknown, any, Option> & Option & Required<{ _id: string }>))[]
-    > = Promise.all(
-      options.map(async (option) => {
-        const existedOption: Option = await this.optionModel.findByIdAndUpdate(id, option);
+      if (newCost) {
+        const createCostTask = this.costService.create([newCost], { session });
+        parallelCallStack.set("createCost", createCostTask);
+      }
 
-        if (!existedOption) {
-          return (await this.optionModel.create(option)).id;
-        }
+      if (newOptions) {
+        const createOptionsTask: Promise<Array<Option>> = this.productOptionService.create(newOptions, { session });
+        parallelCallStack.set("createOptions", createOptionsTask);
+      }
 
-        return existedOption._id;
-      }),
-    );
+      if (updateOptions) {
+        const updateOptionsTask = Promise.all(
+          updateOptions.map(({ _id, ...updates }) => {
+            return this.productOptionService.update(_id, updates, { session });
+          }),
+        );
 
-    const [collection, newCost, updatedOptions] = await Promise.all([
-      collectionQuery,
-      createCostQuery,
-      updateOptionsQuery,
-    ]).catch((error) => {
-      throw new InternalServerErrorException(error.message);
+        parallelCallStack.set("updateOptions", updateOptionsTask);
+      }
+
+      if (deleteOptions) {
+        const deleteOptionsTask = Promise.all(
+          deleteOptions.map((id) => {
+            if (isValidObjectId(id)) this.productOptionService.safeDelete(id);
+          }),
+        );
+
+        parallelCallStack.set("deleteOptions", deleteOptionsTask);
+      }
+
+      if (newImages) {
+        pushUpdate.set("images", newImages);
+      }
+
+      if (deleteImages) {
+        pullUpdate.set("images", deleteImages);
+      }
+
+      const parallelResults = await Promise.all(parallelCallStack.values());
+      const parallelCallStackTaskKeys = Array.from(parallelCallStack.keys());
+
+      if (newCost) {
+        const [createdCost]: Array<Cost> = parallelResults[parallelCallStackTaskKeys.indexOf("createCost")];
+        pushUpdate.set("costs", [createdCost._id]);
+
+        Object.assign(updates, {
+          currentCost: createdCost._id,
+        })
+      }
+
+      if (newOptions) {
+        const createdOptions: Array<Option> = parallelResults[parallelCallStackTaskKeys.indexOf("createOptions")];
+        pushUpdate.set("options", createdOptions.map((option: Option) => option._id));
+      }
+
+      const pushObject = Object.fromEntries(
+        Array.from(pushUpdate.entries()).map(([key, value]) => [key, { $each: value }]),
+      );
+
+      const pullObject = Object.fromEntries(
+        Array.from(pullUpdate.entries()).map(([key, value]) => [key, { $in: value }]),
+      );
+
+
+      return this.update(
+        productId,
+        {
+          ...updates,
+          $push: pushObject,
+          $pull: pullObject,
+        },
+        { session },
+      );
     });
-
-    if (!collection) {
-      throw new BadRequestException(ErrorMessage.COLLECTION_NOT_FOUND);
-    }
-
-    const updateProductPayload: UpdateQuery<Product> = {
-      ...product,
-      collection: collection,
-      options: updatedOptions,
-      currentCost: newCost,
-      $push: {
-        costs: newCost,
-      },
-    };
-
-    const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, updateProductPayload);
-
-    await this.cacheService.del(joinCacheKey(PRODUCT_CACHE_PREFIX, id));
-
-    return updatedProduct;
   }
 
-  async deleteProduct(id: string): Promise<void> {
-    const updatedProduct: Product = await this.productModel.findByIdAndUpdate(id, {
-      isDeleted: true,
-    });
+  async safeDeleteProduct(id: string): Promise<void> {
+    const deleteResult = await this.safeDelete(id);
 
-    if (!updatedProduct) {
+    if (!deleteResult) {
       throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
   }
 
   async checkProductAndOptionExist(productId: string, optionId: string): Promise<boolean> {
-    const productExists = await this.productModel.exists({ _id: new Types.ObjectId(productId) });
+    const productExists = await this.exists({ _id: new Types.ObjectId(productId) });
     if (!productExists) {
       throw new NotFoundException(ErrorMessage.PRODUCT_NOT_FOUND);
     }
 
-    const optionExists = await this.optionModel.exists({
+    const optionExists = await this.productOptionService.exists({
       _id: new Types.ObjectId(optionId),
     });
     if (!optionExists) {
@@ -188,22 +191,5 @@ export class ProductService {
     }
 
     return true;
-  }
-
-  async findProductById(id: string, populate: (keyof Product)[] = [], raw: boolean = false): Promise<Product> {
-    const productCacheKey: string = joinCacheKey(PRODUCT_CACHE_PREFIX, id);
-    const cachedProduct: Product = await this.cacheService.get(productCacheKey);
-
-    if (cachedProduct) return cachedProduct;
-
-    const product: Product = await this.productModel.findById(id).populate(populate);
-
-    if (!product && !raw) {
-      throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
-    }
-
-    await this.cacheService.set(productCacheKey, product);
-
-    return product;
   }
 }

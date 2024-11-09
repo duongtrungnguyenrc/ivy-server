@@ -2,8 +2,8 @@ import { MongooseModule } from "@nestjs/mongoose";
 import { forwardRef, Module } from "@nestjs/common";
 
 import { Order, OrderItem, Option, OrderItemSchema, OrderSchema, OptionSchema } from "@app/schemas";
-import { PaymentModule } from "@app/modules/payment.module";
 import { DeliveryModule } from "@app/modules/delivery.module";
+import { PaymentModule } from "@app/modules/payment.module";
 import { OrderController } from "@app/controllers";
 import { ProductModule } from "./product.module";
 import { OrderService } from "@app/services";

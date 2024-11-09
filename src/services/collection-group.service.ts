@@ -1,32 +1,53 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import { FilterQuery, Model, Types } from "mongoose";
+import { Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
-import { CreateCollectionGroupPayload, PaginationResponse, UpdateCollectionGroupPayload } from "@app/models";
-import { Collection, CollectionGroup } from "@app/schemas";
+import { CreateCollectionGroupPayload, UpdateCollectionGroupPayload } from "@app/models";
+import { RepositoryService } from "@app/services/repository.service";
+import { COLLECTION_GROUP_CACHE_PREFIX } from "@app/constants";
+import { CacheService } from "@app/services/cache.service";
 import { CategoryService } from "./category.service";
+import { withMutateTransaction } from "@app/utils";
+import { CollectionGroup } from "@app/schemas";
 import { ErrorMessage } from "@app/enums";
-import { NOT_DELETED_FILTER } from "@app/constants";
 
 @Injectable()
-export class CollectionGroupService {
+export class CollectionGroupService extends RepositoryService<CollectionGroup> {
   constructor(
-    @InjectModel(CollectionGroup.name)
-    private readonly collectionGroupModel: Model<CollectionGroup>,
     private readonly categoryService: CategoryService,
-  ) {}
+    @InjectModel(CollectionGroup.name)
+    collectionGroupModel: Model<CollectionGroup>,
+    readonly cacheService: CacheService,
+  ) {
+    super(collectionGroupModel, cacheService, COLLECTION_GROUP_CACHE_PREFIX);
+  }
 
   async createCollectionGroup(payload: CreateCollectionGroupPayload): Promise<CollectionGroup> {
-    const { categoryId, ...collection } = payload;
+    return withMutateTransaction<CollectionGroup>(this._model, async (session) => {
+      const { categoryId, ...collection } = payload;
 
-    const createdCollectionGroup: CollectionGroup = await this.collectionGroupModel.create({
-      ...collection,
-      collections: collection.collections.map((id) => new Types.ObjectId(id)),
+      const [createdCollectionGroup] = await this.create(
+        [
+          {
+            ...collection,
+            collections: collection.collections.map((id) => new Types.ObjectId(id)),
+          },
+        ],
+        { session },
+      );
+
+      await this.categoryService.update(
+        categoryId,
+        {
+          $push: {
+            collectionGroups: createdCollectionGroup._id,
+          },
+        },
+        { session },
+      );
+
+      return createdCollectionGroup;
     });
-
-    this.categoryService.addGroup(categoryId, createdCollectionGroup);
-
-    return createdCollectionGroup;
   }
 
   async updateCollectionGroup(updates: UpdateCollectionGroupPayload): Promise<CollectionGroup> {
@@ -36,7 +57,7 @@ export class CollectionGroupService {
       throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_REQUIRED);
     }
 
-    const updatedCollectionGroup: CollectionGroup = await this.collectionGroupModel.findByIdAndUpdate(
+    const updatedCollectionGroup: CollectionGroup = await this.update(
       _id,
       {
         ...group,
@@ -50,85 +71,5 @@ export class CollectionGroupService {
     }
 
     return updatedCollectionGroup;
-  }
-
-  async deleteCollectionGroup(id: string): Promise<void> {
-    const deletedGroup = await this.collectionGroupModel.findByIdAndUpdate(id, { isDeleted: true });
-
-    if (!deletedGroup) throw new BadRequestException(ErrorMessage.COLLECTION_GROUP_NOT_FOUND);
-  }
-
-  async getCollectionGroups(
-    page?: number,
-    limit?: number,
-  ): Promise<CollectionGroup[] | PaginationResponse<CollectionGroup>> {
-    const baseQuery = this.collectionGroupModel
-      .find(NOT_DELETED_FILTER)
-      .populate({
-        path: "collections",
-        match: NOT_DELETED_FILTER,
-      })
-      .sort({ createdAt: -1 });
-
-    if (page) {
-      const limited = limit || 10;
-      const skip = (page - 1) * limited;
-
-      const [paginatedGroups, totalDocs] = await Promise.all([
-        baseQuery.skip(skip).limit(limited).exec(),
-        this.collectionGroupModel.countDocuments(NOT_DELETED_FILTER).exec(),
-      ]);
-
-      return {
-        meta: {
-          page: Number(page),
-          limit: Number(limited),
-          pages: Math.ceil(totalDocs / limited),
-        },
-        data: paginatedGroups,
-      };
-    }
-
-    const groups = await baseQuery;
-
-    return groups;
-  }
-
-  async getCollectionGroup(id: string): Promise<CollectionGroup> {
-    const group: CollectionGroup = await this.collectionGroupModel.findById(id);
-
-    if (!group) {
-      throw new BadRequestException("CollectionGroup not found");
-    }
-
-    return group;
-  }
-
-  async addCollection(id: string, collection: Collection): Promise<CollectionGroup> {
-    const updatedCollectionGroup: CollectionGroup = await this.collectionGroupModel.findByIdAndUpdate(id, {
-      $push: {
-        collections: new Types.ObjectId(collection._id),
-      },
-    });
-
-    return updatedCollectionGroup;
-  }
-
-  async findCollectionGroup(
-    query: FilterQuery<CollectionGroup>,
-    populate: (keyof CollectionGroup)[] = [],
-  ): Promise<CollectionGroup> {
-    return await this.collectionGroupModel.findOne(query).populate(populate);
-  }
-
-  async findCollectionGroupById(id: string): Promise<CollectionGroup> {
-    return await this.collectionGroupModel.findById(id);
-  }
-
-  async findCollectionGroups(
-    query: FilterQuery<CollectionGroup>,
-    populate: (keyof CollectionGroup)[] = [],
-  ): Promise<CollectionGroup[]> {
-    return await this.collectionGroupModel.find(query).populate(populate);
   }
 }

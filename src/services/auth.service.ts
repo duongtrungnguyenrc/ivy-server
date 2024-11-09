@@ -4,7 +4,7 @@ import { v4 as uuid } from "uuid";
 import { compare } from "bcrypt";
 
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
-import { SignInPayload, SignUpPayload, ForgotPasswordPayload, ResetPasswordPayload } from "@app/models";
+import { ForgotPasswordPayload, ResetPasswordPayload, SignInPayload, SignUpPayload } from "@app/models";
 import { JwtAccessService, JwtRefreshService, UserService } from ".";
 import { ErrorMessage, MailSubject } from "@app/enums";
 import { CacheService } from "./cache.service";
@@ -22,7 +22,7 @@ export class AuthService {
   ) {}
 
   async validateUser({ email, password }: SignInPayload): Promise<boolean> {
-    const user = await this.userService.findUser({ email }, ["password"], [], false, ":password");
+    const user = await this.userService.find({ email }, ["_id", "password", "role"], undefined, true);
     if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
 
     const isMatch = await compare(password, user.password);
@@ -31,13 +31,15 @@ export class AuthService {
   }
 
   async signIn({ email }: SignInPayload, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
-    const user = await this.userService.findUser({ email }, ["_id"]);
+    const user = await this.userService.find({ email }, ["_id", "password", "role"]);
     const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {
       this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
       return cachedTokenPair;
     }
+
+    console.log("role", user.role);
 
     const tokenPayload: JwtPayload = { userId: user._id, role: user.role };
     const tokenPair = this.generateTokenPair(tokenPayload);
@@ -69,7 +71,7 @@ export class AuthService {
     { emailOrPhone }: ForgotPasswordPayload,
     ipAddress: string,
   ): Promise<Omit<ResetPasswordTransaction, "otpCode">> {
-    const user = await this.userService.findOneUser({
+    const user = await this.userService.find({
       $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
@@ -154,11 +156,7 @@ export class AuthService {
   }
 
   private async getCachedResetPasswordTransaction(userId: string): Promise<ResetPasswordTransaction> {
-    const transaction: ResetPasswordTransaction = await this.cacheService.get(
-      joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId),
-    );
-
-    return transaction;
+    return await this.cacheService.get(joinCacheKey(RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX, userId));
   }
 
   private async revokeResetPasswordTransaction(userId: string): Promise<void> {
