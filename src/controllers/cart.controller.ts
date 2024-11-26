@@ -23,6 +23,6 @@ export class CartController {
   @Auth()
   @ApiResponse({ description: CartMessages.GET_USER_CART_SUCCESS, type: Cart })
   async getUserCart(@AuthUid() userId: string): Promise<Cart> {
-    return await this.cartService.getOrCreateCart(userId);
+    return await this.cartService.getUserCart(userId);
   }
 }

@@ -11,6 +11,7 @@ import {
   PaginationResponse,
   UpdateCollectionPayload,
 } from "@app/models";
+import { NOT_DELETED_FILTER } from "@app/constants";
 
 @Controller("collection")
 @ApiTags("collection")
@@ -45,9 +46,16 @@ export class CollectionController {
 
   @Get("/")
   @ApiPagination()
-  @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: Collection })
-  getCollections(@Pagination() pagination: Pagination): Promise<PaginationResponse<Collection> | Collection[]> {
+  @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: PaginationResponse<Collection> })
+  getCollections(@Pagination() pagination: Pagination): Promise<PaginationResponse<Collection>> {
     return this.collectionService.findMultiplePaging({}, pagination);
+  }
+
+  @Get("/all")
+  @ApiPagination()
+  @ApiResponse({ description: CollectionMessages.GET_COLLECTION_SUCCESS, type: [Collection] })
+  getAllCollections(): Promise<PaginationResponse<Collection> | Collection[]> {
+    return this.collectionService.findMultiple(NOT_DELETED_FILTER, ["-products"]);
   }
 
   @Get("/:id")

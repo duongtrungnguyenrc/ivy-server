@@ -1,10 +1,11 @@
-import { CartController } from "@app/controllers";
-import { Cart, CartItem, CartItemSchema, CartSchema } from "@app/schemas";
-import { CartService } from "@app/services";
-import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
-import { UserModule } from "./user.module";
-import { ProductModule } from "./product.module";
+import { Module } from "@nestjs/common";
+
+import { Cart, CartItem, CartItemSchema, CartSchema } from "@app/schemas";
+import { CartItemService, CartService } from "@app/services";
+import { ProductModule } from "@app/modules/product.module";
+import { UserModule } from "@app/modules/user.module";
+import { CartController } from "@app/controllers";
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { ProductModule } from "./product.module";
     ]),
   ],
   controllers: [CartController],
-  providers: [CartService],
-  exports: [CartService],
+  providers: [CartService, CartItemService],
+  exports: [CartService, CartItemService],
 })
 export class CartModule {}

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
 import { v4 as uuid } from "uuid";
 import { compare } from "bcrypt";
@@ -38,8 +38,6 @@ export class AuthService {
       this.userService.createAccessRecord(user._id, requestAgent, ipAddress);
       return cachedTokenPair;
     }
-
-    console.log("role", user.role);
 
     const tokenPayload: JwtPayload = { userId: user._id, role: user.role };
     const tokenPair = this.generateTokenPair(tokenPayload);
@@ -109,11 +107,18 @@ export class AuthService {
 
   async refreshToken(refreshToken: string, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { exp: _, iat: __, ...tokenPayload }: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
+    const tokenPayload: JwtPayload = this.jwtRefreshService.decodeToken(refreshToken);
+
+    if (!tokenPayload) {
+      throw new UnauthorizedException();
+    }
 
     this.revokeTokenPair(tokenPayload.userId);
 
-    const newTokenPair: TokenPair = this.generateTokenPair(tokenPayload);
+    const newTokenPair: TokenPair = this.generateTokenPair({
+      role: tokenPayload.role,
+      userId: tokenPayload.userId,
+    });
 
     this.cacheTokenPair(tokenPayload.userId, newTokenPair);
 

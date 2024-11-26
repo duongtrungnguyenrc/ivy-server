@@ -1,11 +1,18 @@
 import { Body, Controller, Get, Param, Post, Put } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import {
+  CancelOrderPayload,
+  CreateOrderPayload,
+  PaginationResponse,
+  ProcessOrderPayload,
+  UpdateOrderPayload,
+} from "@app/models";
 import { ApiPagination, Auth, AuthUid, IpAddress, Pagination } from "@app/decorators";
 import { OrderService } from "@app/services";
 import { OrderMessages } from "@app/enums";
 import { Order } from "@app/schemas";
+import { Types } from "mongoose";
 
 @Controller("order")
 @ApiTags("order")
@@ -63,9 +70,21 @@ export class OrderController {
 
   @Get("/")
   @ApiPagination()
+  @Auth()
   @ApiResponse({ type: Array<Order>, description: OrderMessages.USER_ORDERS })
-  async getCreatedOrder(@AuthUid() userId: string, @Pagination() pagination: Pagination): Promise<Order[]> {
-    return this.orderService.getUserOrders(userId, pagination);
+  async getCustomerdOrders(
+    @AuthUid() userId: string,
+    @Pagination() pagination: Pagination,
+  ): Promise<PaginationResponse<Order>> {
+    return await this.orderService.findMultiplePaging({ user: new Types.ObjectId(userId) }, pagination);
+  }
+
+  @Get("/admin/")
+  @ApiPagination()
+  @Auth(["ADMIN"])
+  @ApiResponse({ type: Array<Order>, description: OrderMessages.USER_ORDERS })
+  async getAdminOrders(@Pagination() pagination: Pagination): Promise<PaginationResponse<Order>> {
+    return await this.orderService.findMultiplePaging({}, pagination, undefined, ["user", "transaction"]);
   }
 
   @Get("/detail/:id")

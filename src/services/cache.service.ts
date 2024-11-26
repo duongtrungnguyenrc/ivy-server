@@ -16,8 +16,8 @@ export class CacheService {
   }
 
   async del(regex: RegExp, prefix?: string): Promise<void>;
-  async del(key: string): Promise<void>;
-  async del(keyOrPattern: string | RegExp, prefix?: string): Promise<void> {
+  async del(key: string | Array<string>): Promise<void>;
+  async del(keyOrPattern: string | Array<string> | RegExp, prefix?: string): Promise<void> {
     if (keyOrPattern instanceof RegExp) {
       await this.deleteKeysByRegex(keyOrPattern, prefix);
     } else {
@@ -26,19 +26,29 @@ export class CacheService {
   }
 
   private async deleteKeysByRegex(regex: RegExp, prefix?: string): Promise<void> {
-    const redisClient = this.keyv.opts.store['redis'];
+    const redisClient = this.keyv.opts.store["redis"];
     const namespace: string = this.keyv.opts.store.namespace;
     const matchingKeys: string[] = [];
     let cursor: string = "0";
 
     do {
-      const scanResult: [string, Array<string>] = await redisClient.scan(cursor, "MATCH", `*${prefix}*`, "COUNT", 100);
+      const scanResult: [string, Array<string>] = await redisClient.scan(
+        cursor,
+        "MATCH",
+        `*${namespace}:${prefix || ""}*`,
+        "COUNT",
+        100,
+      );
       cursor = scanResult[0];
       const keys: Array<string> = scanResult[1];
 
-      matchingKeys.push(...keys.filter((key: string) => regex.test(key)));
+      keys.map((key: string) => {
+        if (regex.test(key)) {
+          matchingKeys.push(key.replace(`${namespace}:`, ""));
+        }
+      });
     } while (cursor !== "0");
 
-    await Promise.all(matchingKeys.map((key: string) => this.del(key.replace(`${namespace}:`, ""))));
+    await this.del(matchingKeys);
   }
 }

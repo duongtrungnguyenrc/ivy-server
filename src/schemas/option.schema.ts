@@ -13,6 +13,9 @@ export class Option extends BaseSchema {
   @Prop({ type: String, enum: Size })
   size: Size;
 
+  @Prop({ default: false })
+  isDeleted: boolean;
+
   @Prop({ default: 0 })
   stock: number;
 }

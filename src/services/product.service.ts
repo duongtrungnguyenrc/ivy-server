@@ -8,7 +8,7 @@ import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX } from "@app/constants";
 import { CollectionService } from "@app/services/collection.service";
 import { RepositoryService } from "@app/services/repository.service";
 import { CacheService } from "@app/services/cache.service";
-import {Collection, Cost, Option, Product} from "@app/schemas";
+import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CostService } from "@app/services/cost.service";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
@@ -27,7 +27,14 @@ export class ProductService extends RepositoryService<Product> {
   }
 
   async getProductDetail(id: string): Promise<Product> {
-    const product: Product = await this.find(id, undefined, ["currentCost", "options"]);
+    const product: Product = await this.find(id, undefined, [
+      "currentCost",
+      {
+        path: "options",
+        model: "Option",
+        match: { isDeleted: false },
+      },
+    ]);
 
     if (!product) throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
 
@@ -140,12 +147,15 @@ export class ProductService extends RepositoryService<Product> {
 
         Object.assign(updates, {
           currentCost: createdCost._id,
-        })
+        });
       }
 
       if (newOptions) {
         const createdOptions: Array<Option> = parallelResults[parallelCallStackTaskKeys.indexOf("createOptions")];
-        pushUpdate.set("options", createdOptions.map((option: Option) => option._id));
+        pushUpdate.set(
+          "options",
+          createdOptions.map((option: Option) => option._id),
+        );
       }
 
       const pushObject = Object.fromEntries(
@@ -155,7 +165,6 @@ export class ProductService extends RepositoryService<Product> {
       const pullObject = Object.fromEntries(
         Array.from(pullUpdate.entries()).map(([key, value]) => [key, { $in: value }]),
       );
-
 
       return this.update(
         productId,

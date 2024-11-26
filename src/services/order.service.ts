@@ -10,7 +10,7 @@ import {
   NotAcceptableException,
 } from "@nestjs/common";
 
-import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import { CancelOrderPayload, CreateOrderPayload, PaginationResponse, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
 import { Option, Order, OrderItem, OrderTransaction, Product } from "@app/schemas";
 import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod } from "@app/enums";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
@@ -289,14 +289,6 @@ export class OrderService extends RepositoryService<Order> {
     return orderItem[0];
   }
 
-  async getUserOrders(userId: string, pagination: Pagination): Promise<Order[]> {
-    const skip = (pagination.page - 1) * pagination.limit;
-    return await this._model
-      .find({ user: new Types.ObjectId(userId) })
-      .skip(skip)
-      .limit(pagination.limit)
-      .exec();
-  }
 
   private calculateTotalCost(items: OrderItem[]): { totalCost: number; discountCost: number } {
     return items.reduce(

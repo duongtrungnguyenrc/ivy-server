@@ -1,4 +1,4 @@
-import { ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { AuthGuard } from "@nestjs/passport";
 import { Observable } from "rxjs";
 
@@ -16,13 +16,12 @@ export class JWTRefreshAuthGuard extends AuthGuard("jwt-refresh") {
     return super.canActivate(context);
   }
 
-  handleRequest(_: any, user: any, ___: any, context: ExecutionContext) {
+  handleRequest(_: any, user: any, __: any, context: ExecutionContext) {
     const request = context.switchToHttp().getRequest();
     const authToken = getTokenFromRequest(request);
 
-    if (!authToken) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
-
-    if (!this.jwtRefreshService.isRevoked(authToken)) throw new ForbiddenException(ErrorMessage.FORBIDDEN);
+    if (!authToken || !this.jwtRefreshService.isRevoked(authToken))
+      throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
     return user;
   }

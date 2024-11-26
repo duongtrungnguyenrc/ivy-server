@@ -17,13 +17,38 @@ import { PaginationResponse } from "@app/models";
 
 export class RepositoryService<T extends Document> {
   protected _model: Model<T>;
-  protected cacheService: CacheService;
+  protected cacheService?: CacheService;
   protected cachePrefix: string;
 
-  protected constructor(model: Model<T>, cacheService: CacheService, cachePrefix: string = "") {
+  protected constructor(model: Model<T>, cacheService?: CacheService, cachePrefix: string = "") {
     this._model = model;
     this.cacheService = cacheService;
     this.cachePrefix = cachePrefix;
+  }
+
+  public async create(docs: Array<AnyKeys<T>>, options?: CreateOptions): Promise<Array<T>>;
+  public async create(doc: AnyKeys<T>, options?: CreateOptions): Promise<T>;
+  public async create(docOrDocs: AnyKeys<T> | Array<AnyKeys<T>>, options?: CreateOptions): Promise<T | Array<T>> {
+    const isArrayInput = Array.isArray(docOrDocs);
+
+    const result = isArrayInput
+      ? await this._model.create(docOrDocs as Array<AnyKeys<T>>, options)
+      : await new this._model(docOrDocs as AnyKeys<T>).save(options);
+
+    if (this.cacheService) {
+      const docsToCache = isArrayInput ? (result as Array<T>) : [result as T];
+
+      await Promise.all(
+        docsToCache.map((doc) => {
+          const cacheKey = joinCacheKey(this.cachePrefix, doc._id.toString());
+          return this.cacheService?.set(cacheKey, doc);
+        }),
+      );
+
+      await this.refreshCache();
+    }
+
+    return result;
   }
 
   public async find(
@@ -37,7 +62,7 @@ export class RepositoryService<T extends Document> {
 
     const boundCacheKey: string = joinCacheKey(this.cachePrefix, JSON.stringify({ idOrFilter, select }), cachePostfix);
 
-    const cachedDocument: T = force ? null : await this.cacheService.get<T>(boundCacheKey);
+    const cachedDocument: T = force ? null : await this.cacheService?.get<T>(boundCacheKey);
 
     if (cachedDocument) return cachedDocument;
 
@@ -53,29 +78,9 @@ export class RepositoryService<T extends Document> {
 
     const document: T = await query.exec();
 
-    if (document) await this.cacheService.set(boundCacheKey, document);
+    if (document) await this.cacheService?.set(boundCacheKey, document);
 
     return document;
-  }
-
-  public async create(docs: Array<AnyKeys<T>>, options?: CreateOptions): Promise<Array<T>>;
-  public async create(doc: AnyKeys<T>, options?: CreateOptions): Promise<T>;
-  public async create(docOrDocs: AnyKeys<T> | Array<AnyKeys<T>>, options?: CreateOptions): Promise<T | Array<T>> {
-    const isArrayInput = Array.isArray(docOrDocs);
-
-    const result = isArrayInput
-      ? await this._model.create(docOrDocs as Array<AnyKeys<T>>, options)
-      : await new this._model(docOrDocs as AnyKeys<T>).save(options);
-
-    const docsToCache = isArrayInput ? (result as Array<T>) : [result as T];
-    await Promise.all(
-      docsToCache.map((doc) => {
-        const cacheKey = joinCacheKey(this.cachePrefix, doc._id.toString());
-        return this.cacheService.set(cacheKey, doc);
-      }),
-    );
-
-    return result;
   }
 
   public async findMultiplePaging(
@@ -89,11 +94,16 @@ export class RepositoryService<T extends Document> {
   ): Promise<PaginationResponse<T>> {
     const { page, limit } = pagination;
 
-    const cacheKey = joinCacheKey(this.cachePrefix, JSON.stringify({ pagination, filter, select, sort }), cachePostfix);
+    const cacheKey = joinCacheKey(
+      this.cachePrefix,
+      "listing",
+      JSON.stringify({ pagination, filter, select, populate, sort }),
+      cachePostfix,
+    );
 
     const cachedDocuments: PaginationResponse<T> | null = force
       ? null
-      : await this.cacheService.get<PaginationResponse<T>>(cacheKey);
+      : await this.cacheService?.get<PaginationResponse<T>>(cacheKey);
 
     if (cachedDocuments) return cachedDocuments;
 
@@ -116,7 +126,7 @@ export class RepositoryService<T extends Document> {
       },
     };
 
-    if (documents.length > 0) await this.cacheService.set(cacheKey, response);
+    if (documents.length > 0) await this.cacheService?.set(cacheKey, response);
 
     return response;
   }
@@ -129,9 +139,14 @@ export class RepositoryService<T extends Document> {
     force: boolean = false,
     cachePostfix: string = "",
   ): Promise<Array<T>> {
-    const cacheKey = joinCacheKey(this.cachePrefix, JSON.stringify({ filter, select, populate, sort }), cachePostfix);
+    const cacheKey = joinCacheKey(
+      this.cachePrefix,
+      "listing",
+      JSON.stringify({ filter, select, populate, sort }),
+      cachePostfix,
+    );
 
-    const cachedDocuments: Array<T> | null = force ? null : await this.cacheService.get<Array<T>>(cacheKey);
+    const cachedDocuments: Array<T> | null = force ? null : await this.cacheService?.get<Array<T>>(cacheKey);
 
     if (cachedDocuments) return cachedDocuments;
 
@@ -143,7 +158,7 @@ export class RepositoryService<T extends Document> {
 
     const documents: Array<T> = await query.exec();
 
-    if (documents.length > 0) await this.cacheService.set(cacheKey, documents);
+    if (documents.length > 0) await this.cacheService?.set(cacheKey, documents);
 
     return documents;
   }
@@ -184,8 +199,13 @@ export class RepositoryService<T extends Document> {
     return this._model.exists(filter).exec();
   }
 
-  private async refreshCache(id: string): Promise<void> {
-    const cacheKeyPattern: RegExp = new RegExp(`.*${id}.*$`);
-    this.cacheService.del(cacheKeyPattern, this.cachePrefix);
+  private async refreshCache(id?: string, pattern?: RegExp): Promise<void> {
+    if (id) {
+      const withIdPattern: RegExp = pattern || new RegExp(`.*${id}.*$`);
+      this.cacheService?.del(withIdPattern, this.cachePrefix);
+    }
+    const allStringPattern: RegExp = new RegExp(`.*listing.*$`);
+
+    this.cacheService?.del(allStringPattern, this.cachePrefix);
   }
 }

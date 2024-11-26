@@ -2,21 +2,26 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
-import { Cart, CartItem } from "@app/schemas";
+import { RepositoryService } from "@app/services/repository.service";
+import { CartItemService } from "@app/services/cart-item.service";
+import { CacheService } from "@app/services/cache.service";
 import { ProductService } from "./product.service";
+import { withMutateTransaction } from "@app/utils";
 import { AddCartItemPayload } from "@app/models";
 import { ErrorMessage } from "@app/enums";
-import { withMutateTransaction } from "@app/utils";
+import { Cart } from "@app/schemas";
 
 @Injectable()
-export class CartService {
+export class CartService extends RepositoryService<Cart> {
   constructor(
-    @InjectModel(Cart.name)
-    private readonly cartModel: Model<Cart>,
-    @InjectModel(CartItem.name)
-    private readonly cartItemModel: Model<CartItem>,
+    private readonly cartItemService: CartItemService,
     private readonly productService: ProductService,
-  ) {}
+    @InjectModel(Cart.name)
+    cartModel: Model<Cart>,
+    cacheService: CacheService,
+  ) {
+    super(cartModel, cacheService);
+  }
 
   private getCartPopulationOptions() {
     return {
@@ -39,58 +44,56 @@ export class CartService {
   async addCartItem(payload: AddCartItemPayload, userId: string): Promise<Cart> {
     const { productId, optionId, quantity } = payload;
 
-    return withMutateTransaction<CartItem, Cart>(this.cartItemModel, async (session) => {
+    return withMutateTransaction<Cart>(this._model, async (session) => {
       const productExists = await this.productService.checkProductAndOptionExist(productId, optionId);
 
       if (!productExists) {
         throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
       }
 
-      const newItems = await this.cartItemModel.create(
+      const newItems = await this.cartItemService.create(
         [{ product: new Types.ObjectId(productId), option: new Types.ObjectId(optionId), quantity }],
         { session },
       );
 
-      return await this.cartModel
-        .findOneAndUpdate(
+      return (
+        await this.update(
           { user: new Types.ObjectId(userId) },
           { $push: { items: newItems[0] } },
           { session, new: true, upsert: true },
         )
-        .populate(this.getCartPopulationOptions())
-        .exec();
+      ).populate(this.getCartPopulationOptions());
     });
   }
 
-  async getOrCreateCart(userId: string): Promise<Cart> {
-    const cart = await this.cartModel
-      .findOne({ user: new Types.ObjectId(userId) })
-      .populate(this.getCartPopulationOptions())
-      .exec();
+  async getUserCart(userId: string): Promise<Cart> {
+    const cart: Cart = await this.find(
+      { user: new Types.ObjectId(userId) },
+      undefined,
+      this.getCartPopulationOptions(),
+    );
 
-    if (cart) {
-      return cart;
+    if (!cart) {
+      return this.create({ user: new Types.ObjectId(userId) });
     }
 
-    const newCart = await this.cartModel.create({ user: new Types.ObjectId(userId) });
-    return newCart.populate(this.getCartPopulationOptions());
+    return cart;
   }
 
   async deleteCartItem(userId: string, itemId: Types.ObjectId | Types.ObjectId[]): Promise<Cart | null> {
-    const cart = await this.cartModel.findOne({
-      user: new Types.ObjectId(userId),
-    });
+    const cart: Cart = await this.find(
+      {
+        user: new Types.ObjectId(userId),
+      },
+      "_id",
+    );
 
-    const updatedCart = await this.cartModel
-      .findByIdAndUpdate(cart._id, { $pull: { items: { $in: itemId } } }, { new: true })
-      .exec();
+    const isMultipleItems = Array.isArray(itemId);
+
+    const updatedCart = await this.update(cart._id, { $pull: { items: isMultipleItems ? { $in: itemId } : itemId } });
 
     if (updatedCart) {
-      if (Array.isArray(itemId)) {
-        await this.cartItemModel.deleteMany({ _id: { $in: itemId } }).exec();
-      } else {
-        await this.cartItemModel.findByIdAndDelete(itemId).exec();
-      }
+      await this.cartItemService.delete({ _id: isMultipleItems ? { $in: itemId } : itemId });
     }
 
     return updatedCart;

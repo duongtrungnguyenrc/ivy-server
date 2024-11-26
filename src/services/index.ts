@@ -16,3 +16,4 @@ export * from "./delivery.service";
 export * from "./payment.service";
 export * from "./repository.service";
 export * from "./cost.service";
+export * from "./cart-item.service";

@@ -20,7 +20,7 @@ export class CategoryService extends RepositoryService<Category> {
   async getCategories(): Promise<Array<Category>> {
     return this.findMultiple(
       NOT_DELETED_FILTER,
-      undefined,
+      "-products",
       {
         path: "collectionGroups",
         match: NOT_DELETED_FILTER,
@@ -28,6 +28,7 @@ export class CategoryService extends RepositoryService<Category> {
           path: "collections",
           model: "Collection",
           match: NOT_DELETED_FILTER,
+          select: "-products",
         },
       },
       { createdAt: -1 },

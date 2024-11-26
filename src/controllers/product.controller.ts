@@ -17,7 +17,19 @@ export class ProductController {
   @ApiPagination()
   @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: PaginationResponse<Product> })
   async getAllProducts(@Pagination() pagination: Pagination): Promise<PaginationResponse<Product>> {
-    return await this.productService.findMultiplePaging(NOT_DELETED_FILTER, pagination);
+    return await this.productService.findMultiplePaging(
+      NOT_DELETED_FILTER,
+      pagination,
+      ["-costs"],
+      ["currentCost", "options"],
+    );
+  }
+
+  @Get("/all")
+  @ApiPagination()
+  @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: Array<Product> })
+  async getNewestProducts(): Promise<Array<Product>> {
+    return await this.productService.findMultiple(NOT_DELETED_FILTER, ["-costs"], ["currentCost", "options"]);
   }
 
   @Get("/:id")

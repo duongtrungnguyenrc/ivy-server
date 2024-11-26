@@ -17,7 +17,7 @@ export class CacheModule {
           useFactory: (configService: ConfigService) => {
             return new Keyv({
               store: new KeyvRedis(configService.get<string>("REDIS_URL")),
-              namespace: "root", // Namespace mặc định
+              namespace: "root",
               ttl: Number(configService.get<number>("REDIS_TTL")),
             });
           },

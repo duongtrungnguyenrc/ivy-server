@@ -25,15 +25,14 @@ export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
     const request = context.switchToHttp().getRequest();
     const authToken = getTokenFromRequest(request);
 
-    if (!this.jwtAccessService.isRevoked(authToken)) throw new ForbiddenException(ErrorMessage.FORBIDDEN);
+    if (!authToken || !this.jwtAccessService.isRevoked(authToken))
+      throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
     const roles = this.reflector.get<ValidRole[]>("roles", context.getHandler());
 
-    if (!authToken) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
-
     const decodedToken: JwtPayload = this.jwtAccessService.decodeToken(authToken);
 
-    if (!decodedToken) throw new ForbiddenException(ErrorMessage.FORBIDDEN);
+    if (!decodedToken) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
 
     if (!roles || roles.includes("*")) {
       return user;
