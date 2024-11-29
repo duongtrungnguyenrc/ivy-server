@@ -20,7 +20,6 @@ export class PaymentService {
     private readonly httpService: HttpService,
   ) {}
 
-
   async createPaymentUrl(
     amount: number,
     orderId: string,

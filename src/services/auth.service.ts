@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { MailerService } from "@nestjs-modules/mailer";
 import { v4 as uuid } from "uuid";
 import { compare } from "bcrypt";
@@ -6,7 +6,7 @@ import { compare } from "bcrypt";
 import { ACCESS_PAIR_CACHE_PREFIX, OTP_LENGTH, OTP_TTL, RESET_PASSOWRD_TRANSACTION_CACHE_PREFIX } from "@app/constants";
 import { ForgotPasswordPayload, ResetPasswordPayload, SignInPayload, SignUpPayload } from "@app/models";
 import { JwtAccessService, JwtRefreshService, UserService } from ".";
-import { ErrorMessage, MailSubject } from "@app/enums";
+import { ErrorMessage, MailSubject, Role } from "@app/enums";
 import { CacheService } from "./cache.service";
 import { joinCacheKey } from "@app/utils";
 import { User } from "@app/schemas";
@@ -22,8 +22,10 @@ export class AuthService {
   ) {}
 
   async validateUser({ email, password }: SignInPayload): Promise<boolean> {
-    const user = await this.userService.find({ email }, ["_id", "password", "role"], undefined, true);
+    const user = await this.userService.find({ email }, ["_id", "password", "role", "isLocked"], undefined, true);
     if (!user) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
+
+    if (user.isLocked) throw new UnauthorizedException(ErrorMessage.ACCOUNT_LOCKED);
 
     const isMatch = await compare(password, user.password);
     if (!isMatch) throw new BadRequestException(ErrorMessage.WRONG_EMAIL_OR_PASSWORD);
@@ -31,7 +33,7 @@ export class AuthService {
   }
 
   async signIn({ email }: SignInPayload, requestAgent: [string, string], ipAddress: string): Promise<TokenPair> {
-    const user = await this.userService.find({ email }, ["_id", "password", "role"]);
+    const user = await this.userService.find({ email }, ["_id", "password", "role", "isLocked"]);
     const cachedTokenPair = await this.getCachedTokenPair(user._id);
 
     if (cachedTokenPair) {
@@ -55,8 +57,42 @@ export class AuthService {
 
     this.mailService.sendMail({
       to: createdUser.email,
-      subject: MailSubject.REGISTER,
-      template: "register",
+      subject: MailSubject.ACCOUNT_REGISTERD,
+      template: "account-registered",
+      context: { user: `${createdUser.lastName} ${createdUser.firstName} ` },
+    });
+  }
+
+  async signUpAdmin(payload: SignUpPayload): Promise<boolean> {
+    const existingUser: User = await this.userService.find({ email: payload.email }, ["_id"]);
+
+    if (existingUser) {
+      const { password, ...rest } = payload;
+
+      const updatedUser: User = await this.userService.update(existingUser._id, {
+        ...rest,
+        role: Role.ADMIN,
+      });
+
+      this.mailService.sendMail({
+        to: updatedUser.email,
+        subject: MailSubject.ADMIN_REGISTERD,
+        template: "admin-registered",
+        context: { user: `${updatedUser.lastName} ${updatedUser.firstName} ` },
+      });
+
+      return true;
+    }
+
+    const createdUser: User = await this.userService.createUser({
+      ...payload,
+      role: Role.ADMIN,
+    });
+
+    this.mailService.sendMail({
+      to: createdUser.email,
+      subject: MailSubject.ADMIN_REGISTERD,
+      template: "admin-registered.hbs",
       context: { user: `${createdUser.lastName} ${createdUser.firstName} ` },
     });
   }
@@ -73,7 +109,7 @@ export class AuthService {
       $or: [{ email: emailOrPhone }, { phone: emailOrPhone }],
     });
 
-    if (!user) throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
+    if (!user) throw new BadRequestException(ErrorMessage.CUSTOMER_NOT_FOUND);
 
     const { otpCode, ...transaction } = await this.createResetPasswordTransaction(user._id, ipAddress);
 
@@ -125,6 +161,30 @@ export class AuthService {
     this.userService.createAccessRecord(tokenPayload.userId, requestAgent, ipAddress);
 
     return newTokenPair;
+  }
+
+  async changeAccountLockStatus(lockStatus: boolean, userId: string, targetUserId?: string): Promise<boolean> {
+    if (targetUserId) {
+      const targetUserTask: Promise<User> = this.userService.find(targetUserId, ["_id", "role"]);
+      const userTask: Promise<User> = this.userService.find(userId, ["_id", "role", "email"]);
+
+      const [targetUser, user] = await Promise.all([targetUserTask, userTask]);
+
+      if (!user) throw new UnauthorizedException(ErrorMessage.UNAUTHORIZED);
+      if (!targetUser) throw new BadRequestException(ErrorMessage.CUSTOMER_NOT_FOUND);
+
+      if (targetUser.role === Role.ADMIN && user.role != Role.OWNER) {
+        throw new ForbiddenException(ErrorMessage.FORBIDDEN);
+      }
+
+      return !!(await this.userService.update(targetUserId, {
+        isLocked: lockStatus,
+      }));
+    }
+
+    return !!(await this.userService.update(userId, {
+      isLocked: lockStatus,
+    }));
   }
 
   /* Helper functions */

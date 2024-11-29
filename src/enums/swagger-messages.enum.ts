@@ -1,6 +1,6 @@
 export enum UserMessages {
-  GET_AUTH_USER_SUCCESS = "Successfully retrieved authenticated user.",
-  UPDATE_USER_SUCCESS = "Successfully updated user.",
+  GET_AUTH_CUSTOMER_SUCCESS = "Successfully retrieved authenticated user.",
+  UPDATE_CUSTOMER_SUCCESS = "Successfully updated user.",
   GET_ACCESS_HISTORY_SUCCESS = "Successfully retrieved access history.",
 }
 
@@ -19,7 +19,7 @@ export enum OrderMessages {
   CANCEL_ORDER_SUCCESS = "Successfully cancelled order.",
   GET_ORDER_SUCCESS = "Successfully retrieved order.",
   ORDER_ID = "Order id",
-  USER_ORDERS = "User orders",
+  CUSTOMER_ORDERS = "User orders",
 }
 
 export enum CollectionGroupMessages {
@@ -47,7 +47,7 @@ export enum CategoryMessages {
 
 export enum CartMessages {
   ADD_CART_ITEM_SUCCESS = "Successfully added item to cart.",
-  GET_USER_CART_SUCCESS = "Successfully retrieved user cart.",
+  GET_CUSTOMER_CART_SUCCESS = "Successfully retrieved user cart.",
 }
 
 export enum AuthMessages {
@@ -60,6 +60,7 @@ export enum AuthMessages {
   AUTH_TOKEN = "JWT Authorization token with any role",
   AUTH_ADMIN_TOKEN = "JWT Authorization token with admin role",
   AUTH_CUSTOMER_TOKEN = "JWT Authorization token with customer role",
+  TARGET_UID = "Target user id",
 }
 
 export enum RatingMessages {

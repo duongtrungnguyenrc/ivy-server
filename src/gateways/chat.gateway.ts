@@ -71,7 +71,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const isClientInAdminRoom = await this.isClientInAdminRoom(client.id);
 
-      const role = isClientInAdminRoom ? Role.ADMIN : Role.USER;
+      const role = isClientInAdminRoom ? Role.ADMIN || Role.OWNER : Role.CUSTOMER;
 
       if (role === Role.ADMIN && !isClientInAdminRoom) {
         this.logger.error(`${ErrorMessage.COULD_NOT_SEND_MESSAGE}`);

@@ -6,7 +6,7 @@ import { Observable } from "rxjs";
 import { JwtAccessService } from "@app/services";
 import { getTokenFromRequest } from "@app/utils";
 import { ValidRole } from "@app/decorators";
-import { ErrorMessage } from "@app/enums";
+import { ErrorMessage, Role } from "@app/enums";
 
 @Injectable()
 export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
@@ -38,7 +38,7 @@ export class JWTAccessAuthGuard extends AuthGuard("jwt-access") {
       return user;
     }
 
-    if (!roles.includes(decodedToken.role)) {
+    if (decodedToken.role != Role.OWNER && !roles.includes(decodedToken.role)) {
       throw new ForbiddenException(ErrorMessage.FORBIDDEN);
     }
 

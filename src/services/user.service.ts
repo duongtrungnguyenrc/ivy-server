@@ -8,7 +8,7 @@ import { PaginationResponse, UpdateUserPayload } from "@app/models";
 import { CacheService } from "@app/services/cache.service";
 import { withMutateTransaction } from "@app/utils";
 import { AccessRecord, User } from "@app/schemas";
-import { USER_CACHE_PREFIX } from "@app/constants";
+import { CUSTOMER_CACHE_PREFIX } from "@app/constants";
 import { ErrorMessage } from "@app/enums";
 
 @Injectable()
@@ -20,7 +20,7 @@ export class UserService extends RepositoryService<User> {
     readonly userModel: Model<User>,
     readonly cacheService: CacheService,
   ) {
-    super(userModel, cacheService, USER_CACHE_PREFIX);
+    super(userModel, cacheService, CUSTOMER_CACHE_PREFIX);
   }
 
   async getAuthUser(id: string): Promise<User> {
@@ -34,7 +34,7 @@ export class UserService extends RepositoryService<User> {
   async updateUser(payload: UpdateUserPayload, userId: string): Promise<User> {
     const updatedUser = await this.update(userId, payload);
 
-    if (!updatedUser) throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
+    if (!updatedUser) throw new BadRequestException(ErrorMessage.CUSTOMER_NOT_FOUND);
 
     return updatedUser;
   }

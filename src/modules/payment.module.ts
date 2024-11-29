@@ -6,10 +6,7 @@ import { PaymentController } from "@app/controllers";
 import { PaymentService } from "@app/services";
 
 @Module({
-  imports: [
-    forwardRef(() => OrderModule),
-    HttpModule,
-  ],
+  imports: [forwardRef(() => OrderModule), HttpModule],
   controllers: [PaymentController],
   providers: [PaymentService],
   exports: [PaymentService],

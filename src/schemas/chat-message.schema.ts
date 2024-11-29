@@ -5,7 +5,7 @@ import { Role } from "@app/enums";
 
 @Schema({ timestamps: true })
 export class ChatMessage extends BaseSchema {
-  @Prop({ type: String, enum: Role, default: Role.USER })
+  @Prop({ type: String, enum: Role, default: Role.CUSTOMER })
   from: Role;
 
   @Prop()

@@ -4,8 +4,9 @@ import { Request } from "express";
 
 import { getTokenFromRequest } from "@app/utils";
 import { UserService } from "@app/services";
+import { Role } from "@app/enums";
 
-export const AuthUid = createParamDecorator(async (_, ctx: ExecutionContext): Promise<string | null> => {
+export const AuthRole = createParamDecorator(async (_, ctx: ExecutionContext): Promise<Role | null> => {
   const request: Request = ctx.switchToHttp().getRequest();
 
   const authToken: string = getTokenFromRequest(request, true);
@@ -18,5 +19,5 @@ export const AuthUid = createParamDecorator(async (_, ctx: ExecutionContext): Pr
   const userService: UserService = request["userService"] as UserService;
   const existingUser = await userService.find(decodedId, ["_id", "role"]);
 
-  return existingUser?._id || null;
+  return existingUser?.role || null;
 });

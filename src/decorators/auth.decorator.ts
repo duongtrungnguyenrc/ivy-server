@@ -10,7 +10,7 @@ export type ValidRole = `${Role}` | "*";
 export const Auth = (roles: ValidRole[] = ["*"], guard: Type<IAuthGuard> = JWTAccessAuthGuard) => {
   const tokenDescription: string = roles.includes("ADMIN")
     ? AuthMessages.AUTH_ADMIN_TOKEN
-    : roles.includes("USER")
+    : roles.includes("CUSTOMER")
       ? AuthMessages.AUTH_CUSTOMER_TOKEN
       : AuthMessages.AUTH_TOKEN;
 

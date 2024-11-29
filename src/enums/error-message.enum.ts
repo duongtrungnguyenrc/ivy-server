@@ -2,7 +2,7 @@ export enum ErrorMessage {
   // Auth
 
   INVALID_AUTH_TOKEN = "Token không hợp lệ",
-  USER_NOT_FOUND = "Người dùng không tồn tại",
+  CUSTOMER_NOT_FOUND = "Người dùng không tồn tại",
   WRONG_EMAIL_OR_PASSWORD = "Email hoặc mật khẩu không chính xác",
   INVALID_OTP = "Mã OTP không hợp lệ",
   INVALID_RESET_PASSWORD_SESSION = "Phiên không tồn tại hoặc đã hết hiệu lực. Vui lòng thử lại sau",
@@ -10,6 +10,7 @@ export enum ErrorMessage {
   FORBIDDEN = "Bạn không có quyền truy cập tài nguyên này",
   UNAUTHORIZED = "Vui lòng đăng nhập",
   INVALID_EMAIL = "Email không hợp lệ",
+  ACCOUNT_LOCKED = "Tài khoản hiện đang bị khoá. vui lòng liên hệ quản trị viên để biết thêm thông tin hoặc thử lại sau",
 
   // Product
 

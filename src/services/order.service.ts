@@ -51,7 +51,7 @@ export class OrderService extends RepositoryService<Order> {
     const user = await this.userService.find(userId, ["email"]);
 
     if (!user) {
-      throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
+      throw new BadRequestException(ErrorMessage.CUSTOMER_NOT_FOUND);
     }
 
     return await this.findMultiplePaging(
@@ -146,10 +146,7 @@ export class OrderService extends RepositoryService<Order> {
       );
 
       const transactionAmount = existedOrder.totalCost + shippingCost - existedOrder.discountCost;
-      const orderTransaction: OrderTransaction = await this.createPendingTransaction(
-        transactionAmount,
-        session,
-      );
+      const orderTransaction: OrderTransaction = await this.createPendingTransaction(transactionAmount, session);
 
       const order = await this.update(
         { _id: orderId },
@@ -232,7 +229,7 @@ export class OrderService extends RepositoryService<Order> {
 
     this.mailerService.sendMail({
       to: rawOrder.email,
-      subject: `IVY Fashion - thanh toán đơn hàng ${success ? "thành công" : "thất bại"}`,
+      subject: success ? MailSubject.ORDER_PAYMENT_SUCCESS : MailSubject.ORDER_PAYMENT_FAILED,
       template: "order-result",
       context: {
         orderId: rawOrder._id,

@@ -1,4 +1,4 @@
-declare type Roles = "ADMIN" | "USER";
+declare type Roles = "ADMIN" | "CUSTOMER" | "OWNER";
 
 declare type JwtPayload = {
   userId: string;
