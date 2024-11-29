@@ -1,0 +1,87 @@
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kết quả đơn hàng</title>
+    <style>
+      body { font-family: 'Arial', sans-serif; margin: 0; padding: 0; background-color: #f9f9f9; color: #333; }
+      .container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); } .header { text-align: center; padding: 20px; background-color:
+      {{#if isPaymentTransactionSuccess}}#22c55e{{else}}#ef4444{{/if}}; color: white; } .header h1 { margin: 0;
+      font-size: 24px; } .content { padding: 20px; } .section { margin-bottom: 20px; } .section h2 { font-size: 18px;
+      margin-bottom: 10px; } .section p { margin: 5px 0; } .order-summary, .payment-summary { margin-top: 20px;
+      border-top: 1px solid #e5e7eb; padding-top: 10px; } .summary-row { display: flex; justify-content: space-between;
+      margin: 5px 0; } .summary-row dt { color: #6b7280; } .summary-row dd { font-weight: bold; } .footer { text-align:
+      center; padding: 10px; font-size: 14px; color: #6b7280; background: #f3f4f6; } .product { display: flex;
+      align-items: center; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; padding-bottom: 15px; } .product img {
+      width: 80px; height: 80px; border-radius: 4px; object-fit: cover; margin-right: 15px; } .product-details { flex:
+      1; } .product-details h3 { margin: 0 0 5px; font-size: 16px; } .product-details p { margin: 2px 0; font-size:
+      14px; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>{{#if isPaymentTransactionSuccess}}Thanh toán thành công{{else}}Thanh toán thất bại{{/if}}</h1>
+      </div>
+      <div class="content">
+        <div class="section">
+          <h2>Thông tin đơn hàng</h2>
+          <p>Mã đơn hàng: <strong>#{{orderId}}</strong></p>
+          <p>Thời gian tạo: <strong>{{createdAt}}</strong></p>
+          <p>Người đặt hàng: <strong>{{customerName}}</strong></p>
+          <p>Email: <strong>{{email}}</strong></p>
+          <p>Số điện thoại: <strong>{{phone}}</strong></p>
+          <p>Địa chỉ nhận hàng: <strong>{{address}}</strong></p>
+        </div>
+        <div class="section">
+          <h2>Sản phẩm trong đơn hàng</h2>
+          {{#each items}}
+            <div class="product">
+              <img src="{{product.images.[0]}}" alt="{{product.name}}" />
+              <div class="product-details">
+                <h3>{{product.name}}</h3>
+                <p>Kích cỡ: {{option.size}}</p>
+                <p>Số lượng: {{quantity}}</p>
+                <p>Giá: {{cost.saleCost}} đ</p>
+                <p>Chiết khấu: {{cost.discountPercentage}}%</p>
+              </div>
+            </div>
+          {{/each}}
+        </div>
+        <div class="order-summary">
+          <h2>Thông tin thanh toán</h2>
+          <dl class="summary-row">
+            <dt>Tạm tính:</dt>
+            <dd>{{totalCost}} đ</dd>
+          </dl>
+          <dl class="summary-row">
+            <dt>Chiết khấu:</dt>
+            <dd>{{discountCost}} đ</dd>
+          </dl>
+          <dl class="summary-row">
+            <dt>Phí vận chuyển:</dt>
+            <dd>{{shippingCost}} đ</dd>
+          </dl>
+          <dl class="summary-row">
+            <dt>Tổng tiền:</dt>
+            <dd>{{finalCost}} đ</dd>
+          </dl>
+        </div>
+        <div class="payment-summary">
+          <dl class="summary-row">
+            <dt>Hình thức thanh toán:</dt>
+            <dd>{{paymentMethod}}</dd>
+          </dl>
+          <dl class="summary-row">
+            <dt>Trạng thái thanh toán:</dt>
+            <dd>{{#if isPaymentTransactionSuccess}}Đã thanh toán{{else}}Chưa thanh toán{{/if}}</dd>
+          </dl>
+        </div>
+      </div>
+      <div class="footer">
+        Cảm ơn bạn đã mua sắm tại IVY fashion!
+      </div>
+    </div>
+  </body>
+</html>

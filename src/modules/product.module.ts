@@ -6,11 +6,13 @@ import { ProductOptionService, ProductService, CostService } from "@app/services
 import { CollectionGroupModule } from "@app/modules/collection-group.module";
 import { CollectionModule } from "@app/modules/collection.module";
 import { ProductController } from "@app/controllers";
+import { CategoryModule } from "./category.module";
 
 @Module({
   imports: [
     CollectionGroupModule,
     CollectionModule,
+    CategoryModule,
     MongooseModule.forFeature([
       {
         name: Product.name,

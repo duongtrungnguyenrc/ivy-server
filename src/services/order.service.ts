@@ -1,5 +1,5 @@
-import { ClientSession, Model, Types } from "mongoose";
 import { ISendMailOptions, MailerService } from "@nestjs-modules/mailer";
+import { ClientSession, Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 import { ConfigService } from "@nestjs/config";
 import {
@@ -10,14 +10,13 @@ import {
   NotAcceptableException,
 } from "@nestjs/common";
 
-import { CancelOrderPayload, CreateOrderPayload, PaginationResponse, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
-import { Option, Order, OrderItem, OrderTransaction, Product } from "@app/schemas";
-import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod } from "@app/enums";
+import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import { CartItem, Option, Order, OrderItem, OrderTransaction } from "@app/schemas";
+import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod, TransactionStatus } from "@app/enums";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
 import { RepositoryService } from "@app/services/repository.service";
 import { DeliveryService } from "@app/services/delivery.service";
 import { PaymentService } from "@app/services/payment.service";
-import { ProductService } from "./product.service";
 import { withMutateTransaction } from "@app/utils";
 import { CacheService } from "./cache.service";
 import { CartService } from "./cart.service";
@@ -29,7 +28,6 @@ export class OrderService extends RepositoryService<Order> {
     @InjectModel(Option.name) private readonly optionModel: Model<Option>,
     private readonly deliveryService: DeliveryService,
     private readonly paymentService: PaymentService,
-    private readonly productService: ProductService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
     private readonly cartService: CartService,
@@ -63,10 +61,7 @@ export class OrderService extends RepositoryService<Order> {
             },
           ],
         },
-        {
-          path: "transaction",
-          model: "OrderTransaction",
-        },
+        "transaction",
       ],
       false,
       `detail`,
@@ -78,9 +73,7 @@ export class OrderService extends RepositoryService<Order> {
 
   async createOrder(payload: CreateOrderPayload, userId: string): Promise<Order> {
     return withMutateTransaction<Order>(this._model, async (session) => {
-      const createdItems = await Promise.all(
-        payload.items.map((item) => this.createOrderItem(item.productId, item.optionId, item.quantity, session)),
-      );
+      const createdItems = await Promise.all(payload.items.map((item) => this.createOrderItem(item, session)));
 
       const { totalCost, discountCost } = this.calculateTotalCost(createdItems);
 
@@ -94,12 +87,7 @@ export class OrderService extends RepositoryService<Order> {
     });
   }
 
-  async processOrder(
-    orderId: string,
-    userId: string,
-    payload: ProcessOrderPayload,
-    ipAddress: string,
-  ): Promise<string> {
+  async processOrder(orderId: string, payload: ProcessOrderPayload, ipAddress: string): Promise<string> {
     return withMutateTransaction<Order, string>(this._model, async (session) => {
       const { addressCode, ...updates } = payload;
       const [wardCode, districtId] = payload.addressCode;
@@ -139,35 +127,18 @@ export class OrderService extends RepositoryService<Order> {
         session,
       );
 
-      const order = await this._model
-        .findOneAndUpdate(
-          { _id: orderId },
-          {
-            ...updates,
-            addressCode,
-            shippingCost,
-            transaction: orderTransaction._id,
-          },
-          { new: true, session },
-        )
-        .populate({
-          path: "items",
-          populate: {
-            path: "cost",
-            model: "Cost",
-          },
-          model: "OrderItem",
-        })
-        .exec();
+      const order = await this.update(
+        { _id: orderId },
+        {
+          ...updates,
+          addressCode,
+          shippingCost,
+          transaction: orderTransaction._id,
+        },
+        { new: true, session },
+      );
 
       if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
-
-      if (userId) {
-        await this.cartService.deleteCartItem(
-          userId,
-          order.items.map(({ _id }) => new Types.ObjectId(_id)),
-        );
-      }
 
       if (order.paymentMethod === PaymentMethod.VNPAY) {
         return await this.paymentService.createPaymentUrl(
@@ -254,14 +225,71 @@ export class OrderService extends RepositoryService<Order> {
     });
   }
 
-  private async createOrderItem(
-    productId: string,
-    optionId: string,
-    quantity: number,
-    session: ClientSession,
-  ): Promise<OrderItem> {
-    const product: Product = await this.productService.find(productId, undefined, ["options"]);
-    const option: Option = product.options.find(({ _id }) => _id == optionId);
+  async notifyOrderStatus(orderId: string, success: boolean) {
+    const order: Order = await this.find(orderId, undefined, [
+      {
+        path: "items",
+        populate: [
+          {
+            path: "cost",
+            model: "Cost",
+          },
+          {
+            path: "product",
+            model: "Product",
+            select: ["_id", "name", "images"],
+          },
+          {
+            path: "option",
+            model: "Option",
+          },
+        ],
+      },
+      "transaction",
+    ]);
+
+    const rawOrder: Order = JSON.parse(JSON.stringify(order));
+
+    this.mailerService.sendMail({
+      to: rawOrder.email,
+      subject: `IVY Fashion - thanh toán đơn hàng ${success ? "thành công" : "thất bại"}`,
+      template: "order-result",
+      context: {
+        orderId: rawOrder._id,
+        createdAt: rawOrder.createdAt?.toLocaleString(),
+        customerName: rawOrder.name || "Khách hàng",
+        email: rawOrder.email || "N/A",
+        phone: rawOrder.phone || "N/A",
+        address: rawOrder.address || "N/A",
+        items: rawOrder.items || [],
+        paymentMethod: rawOrder.paymentMethod || "Không xác định",
+        totalCost: (rawOrder.totalCost || 0).toLocaleString(),
+        discountCost: (rawOrder.discountCost || 0).toLocaleString(),
+        shippingCost: (rawOrder.shippingCost || 0).toLocaleString(),
+        finalCost:
+          (rawOrder.totalCost || 0) - (rawOrder.discountCost || 0) + (rawOrder.shippingCost || 0).toLocaleString(),
+        isPaymentTransactionSuccess: rawOrder?.transaction?.status === TransactionStatus.SUCCESS,
+      },
+    });
+  }
+
+  private async createOrderItem(cartItemId: string, session: ClientSession): Promise<OrderItem> {
+    const cartItem: CartItem = await this.cartService.find(cartItemId, undefined, [
+      {
+        path: "product",
+        model: "Product",
+        select: ["_id", "currentCost"],
+      },
+      {
+        path: "option",
+        model: "Option",
+        select: "_id",
+      },
+    ]);
+
+    if (!cartItem) throw new BadRequestException(ErrorMessage.ORDER_UNKNOW_ERROR);
+
+    const { product, option, quantity } = cartItem;
 
     if (!product || product.isDeleted) {
       throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
@@ -270,25 +298,31 @@ export class OrderService extends RepositoryService<Order> {
     if (!option) {
       throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
     }
+
     if (option.stock < quantity) throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
 
-    await this.optionModel.updateOne({ _id: optionId }, { $inc: { stock: -quantity } }, { session });
+    await this.optionModel.updateOne(
+      { _id: new Types.ObjectId(option._id) },
+      { $inc: { stock: -quantity } },
+      { session },
+    );
+
+    await this.cartService.delete(cartItemId);
 
     const orderItem = await this.orderItemModel.create(
       [
         {
-          product: new Types.ObjectId(productId),
-          option: new Types.ObjectId(optionId),
+          product: new Types.ObjectId(product._id),
+          option: new Types.ObjectId(option._id),
           quantity,
-          cost: product.currentCost,
+          cost: new Types.ObjectId(`${product.currentCost}`),
         },
       ],
       { session },
     );
 
-    return orderItem[0];
+    return await orderItem[0].populate("cost");
   }
-
 
   private calculateTotalCost(items: OrderItem[]): { totalCost: number; discountCost: number } {
     return items.reduce(

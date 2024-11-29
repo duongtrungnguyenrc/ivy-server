@@ -1,7 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query } from "@nestjs/common";
 import { ApiBody, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
 
-import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
+import { CreateProductPayload, PaginationResponse, TopProductsResponse, UpdateProductPayload } from "@app/models";
 import { ApiPagination, Auth, Pagination } from "@app/decorators";
 import { ProductService } from "@app/services";
 import { ProductMessages } from "@app/enums";
@@ -25,11 +25,10 @@ export class ProductController {
     );
   }
 
-  @Get("/all")
-  @ApiPagination()
-  @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: Array<Product> })
-  async getNewestProducts(): Promise<Array<Product>> {
-    return await this.productService.findMultiple(NOT_DELETED_FILTER, ["-costs"], ["currentCost", "options"]);
+  @Get("/top")
+  @ApiResponse({ description: ProductMessages.GET_PRODUCT_SUCCESS, type: [TopProductsResponse] })
+  async getBestSellerProducts() {
+    return await this.productService.getTopProductsByCategory();
   }
 
   @Get("/:id")

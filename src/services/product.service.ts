@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { isValidObjectId, Model, Types } from "mongoose";
 import { InjectModel } from "@nestjs/mongoose";
 
-import { CreateProductPayload, PaginationResponse, UpdateProductPayload } from "@app/models";
+import { CreateProductPayload, PaginationResponse, TopProductsResponse, UpdateProductPayload } from "@app/models";
 import { ProductOptionService } from "@app/services/product-option.service";
 import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX } from "@app/constants";
 import { CollectionService } from "@app/services/collection.service";
@@ -12,6 +12,7 @@ import { Collection, Cost, Option, Product } from "@app/schemas";
 import { CostService } from "@app/services/cost.service";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
+import { CategoryService } from "./category.service";
 
 @Injectable()
 export class ProductService extends RepositoryService<Product> {
@@ -19,6 +20,7 @@ export class ProductService extends RepositoryService<Product> {
     private readonly costService: CostService,
     private readonly productOptionService: ProductOptionService,
     private readonly collectionService: CollectionService,
+    private readonly categoryService: CategoryService,
     @InjectModel(Product.name)
     productModel: Model<Product>,
     cacheService: CacheService,
@@ -56,6 +58,97 @@ export class ProductService extends RepositoryService<Product> {
       undefined,
       ["options", "currentCost"],
     );
+  }
+
+  async getTopProductsByCategory(limit: number = 5): Promise<TopProductsResponse[]> {
+    return this.categoryService._model
+      .aggregate()
+      .lookup({
+        from: "collectiongroups",
+        localField: "collectionGroups",
+        foreignField: "_id",
+        as: "collectionGroupsData",
+      })
+      .unwind("collectionGroupsData")
+      .lookup({
+        from: "collections",
+        localField: "collectionGroupsData.collections",
+        foreignField: "_id",
+        as: "collectionsData",
+      })
+      .unwind("collectionsData")
+      .lookup({
+        from: "products",
+        localField: "collectionsData.products",
+        foreignField: "_id",
+        as: "productsData",
+      })
+      .unwind("productsData")
+      .lookup({
+        from: "costs",
+        localField: "productsData.currentCost",
+        foreignField: "_id",
+        as: "currentCostData",
+      })
+      .addFields({
+        "productsData.currentCost": { $arrayElemAt: ["$currentCostData", 0] },
+      })
+      .lookup({
+        from: "options",
+        localField: "productsData.options",
+        foreignField: "_id",
+        as: "optionsData",
+      })
+      .addFields({
+        "productsData.options": "$optionsData",
+      })
+      .project({
+        "productsData.costs": 0,
+      })
+      .lookup({
+        from: "orderitems",
+        localField: "productsData._id",
+        foreignField: "product",
+        as: "orderItemsData",
+      })
+      .unwind({
+        path: "$orderItemsData",
+        preserveNullAndEmptyArrays: true,
+      })
+      .group({
+        _id: {
+          category: "$name",
+          product: "$productsData._id",
+        },
+        productName: { $first: "$productsData.name" },
+        totalSold: { $sum: "$orderItemsData.quantity" },
+        currentCost: { $first: "$productsData.currentCost" },
+        options: { $first: "$productsData.options" },
+        images: {
+          $first: "$productsData.images",
+        },
+      })
+      .sort({
+        "_id.category": 1,
+        totalSold: -1,
+      })
+      .group({
+        _id: "$_id.category",
+        topProducts: {
+          $push: {
+            _id: "$_id.product",
+            productName: "$productName",
+            totalSold: "$totalSold",
+            currentCost: "$currentCost",
+            options: "$options",
+            images: "$images",
+          },
+        },
+      })
+      .project({
+        category: "$_id",
+        topProducts: { $slice: ["$topProducts", limit] },
+      });
   }
 
   async createProduct(payload: CreateProductPayload): Promise<Product> {

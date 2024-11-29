@@ -33,10 +33,9 @@ export class OrderController {
   async processOrder(
     @Body() payload: ProcessOrderPayload,
     @Param("id") orderId: string,
-    @AuthUid() userId: string,
     @IpAddress() ipAddress: string,
   ): Promise<string> {
-    return await this.orderService.processOrder(orderId, userId, payload, ipAddress);
+    return await this.orderService.processOrder(orderId, payload, ipAddress);
   }
 
   @Auth()

@@ -80,8 +80,6 @@ export class DeliveryService {
       to_district: toDistrictId,
     };
 
-    console.log(payload);
-
     const response: Observable<AxiosResponse<Ghn.Response<Array<Ghn.Service>>>> = this.httpService.post(
       `/available-services`,
       payload,

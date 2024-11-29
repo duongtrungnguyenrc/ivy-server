@@ -25,7 +25,6 @@ export class PaymentService {
   ) {}
 
   async createPendingTransaction(amount: number, session: ClientSession): Promise<OrderTransaction> {
-    console.log(amount);
     const [createdTransaction] = await this.orderTransactionModel.create(
       [
         {
@@ -100,6 +99,8 @@ export class PaymentService {
         { new: true },
       );
     }
+
+    await this.orderService.notifyOrderStatus(orderId, status === VnpayTransactionStatus.SUCCESS);
 
     const clientUrl: string = this.configService.get<string>("CLIENT_URL");
     response.redirect(`${clientUrl}/order/result/${orderId}`);

@@ -16,7 +16,7 @@ import { joinCacheKey } from "@app/utils";
 import { PaginationResponse } from "@app/models";
 
 export class RepositoryService<T extends Document> {
-  protected _model: Model<T>;
+  _model: Model<T>;
   protected cacheService?: CacheService;
   protected cachePrefix: string;
 

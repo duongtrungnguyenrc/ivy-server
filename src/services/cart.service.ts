@@ -3,30 +3,80 @@ import { InjectModel } from "@nestjs/mongoose";
 import { Model, Types } from "mongoose";
 
 import { RepositoryService } from "@app/services/repository.service";
-import { CartItemService } from "@app/services/cart-item.service";
 import { CacheService } from "@app/services/cache.service";
 import { ProductService } from "./product.service";
-import { withMutateTransaction } from "@app/utils";
-import { AddCartItemPayload } from "@app/models";
+import { AddCartItemPayload, getCartItemPayload } from "@app/models";
+import { CartItem } from "@app/schemas";
 import { ErrorMessage } from "@app/enums";
-import { Cart } from "@app/schemas";
+import { ProductOptionService } from "./product-option.service";
 
 @Injectable()
-export class CartService extends RepositoryService<Cart> {
+export class CartService extends RepositoryService<CartItem> {
   constructor(
-    private readonly cartItemService: CartItemService,
     private readonly productService: ProductService,
-    @InjectModel(Cart.name)
-    cartModel: Model<Cart>,
+    private readonly productOptionService: ProductOptionService,
+    @InjectModel(CartItem.name) cartItemModel: Model<CartItem>,
     cacheService: CacheService,
   ) {
-    super(cartModel, cacheService);
+    super(cartItemModel, cacheService);
   }
 
-  private getCartPopulationOptions() {
-    return {
-      path: "items",
-      populate: [
+  async addCartItem(payload: AddCartItemPayload, userId: string): Promise<CartItem> {
+    const { productId, optionId, quantity } = payload;
+
+    const product = await this.productService.find(productId, ["_id"]);
+    const option = await this.productOptionService.find(optionId, ["_id", "stock"]);
+
+    if (!product || !option) {
+      throw new BadRequestException(ErrorMessage.PRODUCT_OPTION_NOT_FOUND);
+    }
+
+    if (option.stock < payload.quantity) {
+      throw new BadRequestException(ErrorMessage.PRODUCT_SOLD_OUT);
+    }
+
+    const newItem = await this.create({
+      user: userId ? new Types.ObjectId(userId) : undefined,
+      product: new Types.ObjectId(productId),
+      option: new Types.ObjectId(optionId),
+      quantity,
+    });
+
+    if (userId) {
+      await this.update({ user: new Types.ObjectId(userId) }, { $push: { items: newItem } });
+    }
+
+    return newItem;
+  }
+
+  async getCartItems(payload: getCartItemPayload, userId: string): Promise<CartItem[]> {
+    if (userId) {
+      return await this.findMultiple(
+        { user: new Types.ObjectId(userId) },
+        [],
+        [
+          {
+            path: "product",
+            model: "Product",
+            select: ["name", "currentCost", "images"],
+            populate: { path: "currentCost", model: "Cost" },
+          },
+          {
+            path: "option",
+            model: "Option",
+          },
+        ],
+      );
+    }
+
+    return this.findMultiple(
+      {
+        _id: {
+          $in: payload.ids,
+        },
+      },
+      undefined,
+      [
         {
           path: "product",
           model: "Product",
@@ -38,64 +88,14 @@ export class CartService extends RepositoryService<Cart> {
           model: "Option",
         },
       ],
-    };
-  }
-
-  async addCartItem(payload: AddCartItemPayload, userId: string): Promise<Cart> {
-    const { productId, optionId, quantity } = payload;
-
-    return withMutateTransaction<Cart>(this._model, async (session) => {
-      const productExists = await this.productService.checkProductAndOptionExist(productId, optionId);
-
-      if (!productExists) {
-        throw new BadRequestException(ErrorMessage.PRODUCT_NOT_FOUND);
-      }
-
-      const newItems = await this.cartItemService.create(
-        [{ product: new Types.ObjectId(productId), option: new Types.ObjectId(optionId), quantity }],
-        { session },
-      );
-
-      return (
-        await this.update(
-          { user: new Types.ObjectId(userId) },
-          { $push: { items: newItems[0] } },
-          { session, new: true, upsert: true },
-        )
-      ).populate(this.getCartPopulationOptions());
-    });
-  }
-
-  async getUserCart(userId: string): Promise<Cart> {
-    const cart: Cart = await this.find(
-      { user: new Types.ObjectId(userId) },
-      undefined,
-      this.getCartPopulationOptions(),
     );
-
-    if (!cart) {
-      return this.create({ user: new Types.ObjectId(userId) });
-    }
-
-    return cart;
   }
 
-  async deleteCartItem(userId: string, itemId: Types.ObjectId | Types.ObjectId[]): Promise<Cart | null> {
-    const cart: Cart = await this.find(
-      {
-        user: new Types.ObjectId(userId),
-      },
-      "_id",
-    );
-
+  async deleteCartItem(itemId: Types.ObjectId | Types.ObjectId[]): Promise<boolean> {
     const isMultipleItems = Array.isArray(itemId);
 
-    const updatedCart = await this.update(cart._id, { $pull: { items: isMultipleItems ? { $in: itemId } : itemId } });
+    await this.delete({ _id: isMultipleItems ? { $in: itemId } : itemId });
 
-    if (updatedCart) {
-      await this.cartItemService.delete({ _id: isMultipleItems ? { $in: itemId } : itemId });
-    }
-
-    return updatedCart;
+    return true;
   }
 }

@@ -22,3 +22,4 @@ export * from "./update-collection.payload";
 export * from "./calc-ghn-fee.payload";
 export * from "./process-order.payload";
 export * from "./cancel-order.payload";
+export * from "./get-cart-item.payload";

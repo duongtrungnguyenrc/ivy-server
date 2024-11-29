@@ -9,7 +9,6 @@ export * from "./option.schema";
 export * from "./cost.schema";
 export * from "./order.schema";
 export * from "./order-item.schema";
-export * from "./cart.schema";
 export * from "./cart-item.schema";
 export * from "./access-record.schema";
 export * from "./chat-room.schema";

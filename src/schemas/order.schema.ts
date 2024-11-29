@@ -49,7 +49,7 @@ export class Order extends BaseSchema {
   discountCost: number;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;

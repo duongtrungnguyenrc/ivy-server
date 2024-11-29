@@ -36,6 +36,7 @@ export enum ErrorMessage {
   ORDER_NOT_FOUND = "Đơn hàng không tồn tại",
   ORDER_CANT_CANCEL = "Đơn hàng đã được xử lý và không thể huỷ",
   ORDER_CANCEL_FAILED = "Đã xảy ra lỗi không xác định khi huỷ đơn hàng. vui lòng thử lại sau",
+  ORDER_UNKNOW_ERROR = "Đã xảy ra lỗi",
 
   // Payment
 

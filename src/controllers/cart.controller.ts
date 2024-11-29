@@ -1,10 +1,10 @@
 import { ApiBody, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Param, Post } from "@nestjs/common";
 
-import { AddCartItemPayload } from "@app/models";
-import { Auth, AuthUid } from "@app/decorators";
+import { AddCartItemPayload, getCartItemPayload } from "@app/models";
+import { AuthUid } from "@app/decorators";
 import { CartService } from "@app/services";
-import { Cart } from "@app/schemas";
+import { CartItem } from "@app/schemas";
 import { CartMessages } from "@app/enums";
 
 @Controller("cart")
@@ -12,17 +12,20 @@ import { CartMessages } from "@app/enums";
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
-  @Post("/")
+  @Post("/items/add")
   @ApiBody({ type: AddCartItemPayload })
-  @ApiResponse({ description: CartMessages.ADD_CART_ITEM_SUCCESS, type: Cart })
-  async addCartItem(@Body() payload: AddCartItemPayload, @AuthUid() userId: string): Promise<Cart> {
+  @ApiResponse({ description: CartMessages.ADD_CART_ITEM_SUCCESS, type: CartItem })
+  async addCartItem(@Body() payload: AddCartItemPayload, @AuthUid() userId: string): Promise<CartItem> {
     return await this.cartService.addCartItem(payload, userId);
   }
 
-  @Get("/")
-  @Auth()
-  @ApiResponse({ description: CartMessages.GET_USER_CART_SUCCESS, type: Cart })
-  async getUserCart(@AuthUid() userId: string): Promise<Cart> {
-    return await this.cartService.getUserCart(userId);
+  @Post("/items")
+  async getCartItems(@Body() payload: getCartItemPayload, @AuthUid() userId: string) {
+    return this.cartService.getCartItems(payload, userId);
+  }
+
+  @Delete("/items/:id")
+  async deleteCartItem(@Param("id") id: string) {
+    return this.cartService.delete(id);
   }
 }
