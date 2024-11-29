@@ -10,7 +10,13 @@ import {
   NotAcceptableException,
 } from "@nestjs/common";
 
-import { CancelOrderPayload, CreateOrderPayload, ProcessOrderPayload, UpdateOrderPayload } from "@app/models";
+import {
+  CancelOrderPayload,
+  CreateOrderPayload,
+  PaginationResponse,
+  ProcessOrderPayload,
+  UpdateOrderPayload,
+} from "@app/models";
 import { CartItem, Option, Order, OrderItem, OrderTransaction } from "@app/schemas";
 import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod, TransactionStatus } from "@app/enums";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
@@ -20,22 +26,40 @@ import { PaymentService } from "@app/services/payment.service";
 import { withMutateTransaction } from "@app/utils";
 import { CacheService } from "./cache.service";
 import { CartService } from "./cart.service";
+import { UserService } from "./user.service";
 
 @Injectable()
 export class OrderService extends RepositoryService<Order> {
   constructor(
+    @InjectModel(OrderTransaction.name) private readonly orderTransactionModel: Model<OrderTransaction>,
     @InjectModel(OrderItem.name) private readonly orderItemModel: Model<OrderItem>,
     @InjectModel(Option.name) private readonly optionModel: Model<Option>,
     private readonly deliveryService: DeliveryService,
     private readonly paymentService: PaymentService,
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
     private readonly cartService: CartService,
     cacheService: CacheService,
     @InjectModel(Order.name)
     orderModel: Model<Order>,
   ) {
     super(orderModel, cacheService, ORDER_CACHE_PREFIX);
+  }
+
+  async getCustomerOrders(userId: string, pagination: Pagination): Promise<PaginationResponse<Order>> {
+    const user = await this.userService.find(userId, ["email"]);
+
+    if (!user) {
+      throw new BadRequestException(ErrorMessage.USER_NOT_FOUND);
+    }
+
+    return await this.findMultiplePaging(
+      {
+        email: user.email,
+      },
+      pagination,
+    );
   }
 
   async getOrderDetail(id: string): Promise<Order> {
@@ -122,7 +146,7 @@ export class OrderService extends RepositoryService<Order> {
       );
 
       const transactionAmount = existedOrder.totalCost + shippingCost - existedOrder.discountCost;
-      const orderTransaction: OrderTransaction = await this.paymentService.createPendingTransaction(
+      const orderTransaction: OrderTransaction = await this.createPendingTransaction(
         transactionAmount,
         session,
       );
@@ -151,6 +175,81 @@ export class OrderService extends RepositoryService<Order> {
       }
 
       return `${this.configService.get("CLIENT_URL")}/order/result?id=${orderId}`;
+    });
+  }
+
+  async orderTransactionCallback(orderId: string, payDate: string, success: boolean) {
+    const order: Order = await this.find(orderId, undefined, [
+      {
+        path: "items",
+        populate: [
+          {
+            path: "cost",
+            model: "Cost",
+          },
+          {
+            path: "product",
+            model: "Product",
+            select: ["_id", "name", "images"],
+          },
+          {
+            path: "option",
+            model: "Option",
+          },
+        ],
+      },
+      "transaction",
+    ]);
+
+    if (!order) {
+      throw new NotAcceptableException(`${ErrorMessage.ORDER_NOT_FOUND}: ${orderId}`);
+    }
+
+    if (success) {
+      await this.orderTransactionModel.updateOne(
+        { _id: order.transaction._id || order.transaction },
+        {
+          status: TransactionStatus.SUCCESS,
+          payDate,
+        },
+        { new: true },
+      );
+      await this.update(order._id, {
+        status: OrderStatus.PREPARING,
+      });
+    } else {
+      await this.orderTransactionModel.updateOne(
+        { _id: order.transaction._id || order.transaction },
+        {
+          status: TransactionStatus.FAIL,
+          payDate,
+        },
+        { new: true },
+      );
+    }
+
+    const rawOrder: Order = JSON.parse(JSON.stringify(order));
+
+    this.mailerService.sendMail({
+      to: rawOrder.email,
+      subject: `IVY Fashion - thanh toán đơn hàng ${success ? "thành công" : "thất bại"}`,
+      template: "order-result",
+      context: {
+        orderId: rawOrder._id,
+        createdAt: rawOrder.createdAt?.toLocaleString(),
+        customerName: rawOrder.name || "Khách hàng",
+        email: rawOrder.email || "N/A",
+        phone: rawOrder.phone || "N/A",
+        address: rawOrder.address || "N/A",
+        items: rawOrder.items || [],
+        paymentMethod: rawOrder.paymentMethod || "Không xác định",
+        totalCost: (rawOrder.totalCost || 0).toLocaleString(),
+        discountCost: (rawOrder.discountCost || 0).toLocaleString(),
+        shippingCost: (rawOrder.shippingCost || 0).toLocaleString(),
+        finalCost:
+          (rawOrder.totalCost || 0) - (rawOrder.discountCost || 0) + (rawOrder.shippingCost || 0).toLocaleString(),
+        isPaymentTransactionSuccess: rawOrder?.transaction?.status === TransactionStatus.SUCCESS,
+      },
     });
   }
 
@@ -225,54 +324,6 @@ export class OrderService extends RepositoryService<Order> {
     });
   }
 
-  async notifyOrderStatus(orderId: string, success: boolean) {
-    const order: Order = await this.find(orderId, undefined, [
-      {
-        path: "items",
-        populate: [
-          {
-            path: "cost",
-            model: "Cost",
-          },
-          {
-            path: "product",
-            model: "Product",
-            select: ["_id", "name", "images"],
-          },
-          {
-            path: "option",
-            model: "Option",
-          },
-        ],
-      },
-      "transaction",
-    ]);
-
-    const rawOrder: Order = JSON.parse(JSON.stringify(order));
-
-    this.mailerService.sendMail({
-      to: rawOrder.email,
-      subject: `IVY Fashion - thanh toán đơn hàng ${success ? "thành công" : "thất bại"}`,
-      template: "order-result",
-      context: {
-        orderId: rawOrder._id,
-        createdAt: rawOrder.createdAt?.toLocaleString(),
-        customerName: rawOrder.name || "Khách hàng",
-        email: rawOrder.email || "N/A",
-        phone: rawOrder.phone || "N/A",
-        address: rawOrder.address || "N/A",
-        items: rawOrder.items || [],
-        paymentMethod: rawOrder.paymentMethod || "Không xác định",
-        totalCost: (rawOrder.totalCost || 0).toLocaleString(),
-        discountCost: (rawOrder.discountCost || 0).toLocaleString(),
-        shippingCost: (rawOrder.shippingCost || 0).toLocaleString(),
-        finalCost:
-          (rawOrder.totalCost || 0) - (rawOrder.discountCost || 0) + (rawOrder.shippingCost || 0).toLocaleString(),
-        isPaymentTransactionSuccess: rawOrder?.transaction?.status === TransactionStatus.SUCCESS,
-      },
-    });
-  }
-
   private async createOrderItem(cartItemId: string, session: ClientSession): Promise<OrderItem> {
     const cartItem: CartItem = await this.cartService.find(cartItemId, undefined, [
       {
@@ -337,5 +388,18 @@ export class OrderService extends RepositoryService<Order> {
       },
       { totalCost: 0, discountCost: 0 },
     );
+  }
+
+  async createPendingTransaction(amount: number, session: ClientSession): Promise<OrderTransaction> {
+    const [createdTransaction] = await this.orderTransactionModel.create(
+      [
+        {
+          amount,
+        },
+      ],
+      { session },
+    );
+
+    return createdTransaction;
   }
 }

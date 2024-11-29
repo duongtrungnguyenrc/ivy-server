@@ -5,37 +5,21 @@ import { format } from "date-fns";
 import * as crypto from "crypto";
 import { stringify } from "qs";
 
-import { ErrorMessage, TransactionStatus, VnpayTransactionRefundType, VnpayTransactionStatus } from "@app/enums";
+import { ErrorMessage, VnpayTransactionRefundType, VnpayTransactionStatus } from "@app/enums";
 import { VnpayTransactionCommand } from "@app/enums/vnpay-command.enum";
 import { OrderService } from "@app/services/order.service";
-import { Order, OrderTransaction } from "@app/schemas";
-import { ClientSession, Model } from "mongoose";
-import { InjectModel } from "@nestjs/mongoose";
+import { Order } from "@app/schemas";
 import { HttpService } from "@nestjs/axios";
 
 @Injectable()
 export class PaymentService {
   constructor(
-    @InjectModel(OrderTransaction.name)
-    private readonly orderTransactionModel: Model<OrderTransaction>,
     @Inject(forwardRef(() => OrderService))
     private readonly orderService: OrderService,
     private readonly configService: ConfigService,
     private readonly httpService: HttpService,
   ) {}
 
-  async createPendingTransaction(amount: number, session: ClientSession): Promise<OrderTransaction> {
-    const [createdTransaction] = await this.orderTransactionModel.create(
-      [
-        {
-          amount,
-        },
-      ],
-      { session },
-    );
-
-    return createdTransaction;
-  }
 
   async createPaymentUrl(
     amount: number,
@@ -80,27 +64,7 @@ export class PaymentService {
       throw new NotAcceptableException(`${ErrorMessage.ORDER_NOT_FOUND}: ${orderId}`);
     }
 
-    if (status === VnpayTransactionStatus.SUCCESS) {
-      await this.orderTransactionModel.updateOne(
-        { _id: order.transaction._id || order.transaction },
-        {
-          status: TransactionStatus.SUCCESS,
-          payDate,
-        },
-        { new: true },
-      );
-    } else {
-      await this.orderTransactionModel.updateOne(
-        { _id: order.transaction._id || order.transaction },
-        {
-          status: TransactionStatus.FAIL,
-          payDate,
-        },
-        { new: true },
-      );
-    }
-
-    await this.orderService.notifyOrderStatus(orderId, status === VnpayTransactionStatus.SUCCESS);
+    await this.orderService.orderTransactionCallback(orderId, payDate, status === VnpayTransactionStatus.SUCCESS);
 
     const clientUrl: string = this.configService.get<string>("CLIENT_URL");
     response.redirect(`${clientUrl}/order/result/${orderId}`);

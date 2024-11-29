@@ -59,13 +59,13 @@ export class OrderController {
     return await this.orderService.cancelOrder(orderId, payload, ipAddress);
   }
 
-  @Put("/:id")
-  @ApiBody({ type: UpdateOrderPayload })
-  @ApiParam({ type: String, name: "id", description: OrderMessages.ORDER_ID })
-  @ApiResponse({ description: OrderMessages.UPDATE_ORDER_SUCCESS, type: Order })
-  updateOrder(@Body() payload: UpdateOrderPayload, @Param("id") id: string): Promise<Order> {
-    return this.orderService.updateOrder(id, payload);
-  }
+  // @Put("/:id")
+  // @ApiBody({ type: UpdateOrderPayload })
+  // @ApiParam({ type: String, name: "id", description: OrderMessages.ORDER_ID })
+  // @ApiResponse({ description: OrderMessages.UPDATE_ORDER_SUCCESS, type: Order })
+  // updateOrder(@Body() payload: UpdateOrderPayload, @Param("id") id: string): Promise<Order> {
+  //   return this.orderService.updateOrder(id, payload);
+  // }
 
   @Get("/")
   @ApiPagination()
@@ -75,7 +75,7 @@ export class OrderController {
     @AuthUid() userId: string,
     @Pagination() pagination: Pagination,
   ): Promise<PaginationResponse<Order>> {
-    return await this.orderService.findMultiplePaging({ user: new Types.ObjectId(userId) }, pagination);
+    return await this.orderService.getCustomerOrders(userId, pagination);
   }
 
   @Get("/admin/")
