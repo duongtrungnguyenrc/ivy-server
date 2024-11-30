@@ -69,7 +69,12 @@ export class ProductController {
   @Auth(["ADMIN"])
   @ApiParam({ type: String, name: "id", description: ProductMessages.PRODUCT_ID })
   @ApiResponse({ description: ProductMessages.DELETE_PRODUCT_SUCCESS })
-  deleteProduct(@Param("id") id: string): Promise<void> {
-    return this.productService.safeDeleteProduct(id);
+  async deleteProduct(@Param("id") id: string): Promise<void> {
+    return await this.productService.safeDeleteProduct(id);
+  }
+
+  @Get("/search/:query")
+  async seachProduct(@Param("query") query: string): Promise<Array<Product>> {
+    return await this.productService.searchProduct(query);
   }
 }

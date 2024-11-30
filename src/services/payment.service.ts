@@ -76,7 +76,8 @@ export class PaymentService {
     transactionDate: string | Date,
     transactionType: VnpayTransactionRefundType = VnpayTransactionRefundType.FULL,
   ): Promise<boolean> {
-    const formatedPayDate: string = format(new Date(transactionDate), "YYYYMMDDHHmmss");
+    const formatedPayDate: string = format(new Date(transactionDate), "yyyyMMddHHmmss");
+    const vnpRequestId = format(new Date(), "HHmmss");
 
     const vnpayRefundParams: Vnp.RefundParams = this.buildVnpBaseParams(
       amount,
@@ -95,7 +96,6 @@ export class PaymentService {
     );
 
     const vnpayApiUrl: string = this.configService.get<string>("VNP_API");
-    const vnpRequestId = format(new Date(), "HHmmss");
 
     return new Promise((resolve, reject) => {
       this.httpService.post(vnpayApiUrl, vnpayRefundParams).subscribe({

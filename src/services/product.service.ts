@@ -7,12 +7,12 @@ import { ProductOptionService } from "@app/services/product-option.service";
 import { NOT_DELETED_FILTER, PRODUCT_CACHE_PREFIX } from "@app/constants";
 import { CollectionService } from "@app/services/collection.service";
 import { RepositoryService } from "@app/services/repository.service";
-import { CacheService } from "@app/services/cache.service";
 import { Collection, Cost, Option, Product } from "@app/schemas";
+import { CacheService } from "@app/services/cache.service";
 import { CostService } from "@app/services/cost.service";
+import { CategoryService } from "./category.service";
 import { withMutateTransaction } from "@app/utils";
 import { ErrorMessage } from "@app/enums";
-import { CategoryService } from "./category.service";
 
 @Injectable()
 export class ProductService extends RepositoryService<Product> {
@@ -26,6 +26,18 @@ export class ProductService extends RepositoryService<Product> {
     cacheService: CacheService,
   ) {
     super(productModel, cacheService, PRODUCT_CACHE_PREFIX);
+  }
+
+  async searchProduct(query: string): Promise<Product[]> {
+    const filters = [];
+
+    filters.push({ name: { $regex: query, $options: "i" } });
+
+    if (Types.ObjectId.isValid(query)) {
+      filters.push({ _id: new Types.ObjectId(query) });
+    }
+
+    return await this.findMultiple({ $or: filters }, ["_id", "name", "images", "description"]);
   }
 
   async getProductDetail(id: string): Promise<Product> {
@@ -137,7 +149,7 @@ export class ProductService extends RepositoryService<Product> {
         topProducts: {
           $push: {
             _id: "$_id.product",
-            productName: "$productName",
+            name: "$productName",
             totalSold: "$totalSold",
             currentCost: "$currentCost",
             options: "$options",

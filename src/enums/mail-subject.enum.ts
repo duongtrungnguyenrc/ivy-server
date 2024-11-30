@@ -4,6 +4,7 @@ export enum MailSubject {
   RESET_PASSWORD = "Khôi phục mật khẩu IVY Fashion",
   NEW_MESSAGE = "Thông báo mới từ IVY Fashion",
   ORDER_CANCELED = "IVY FASHION - Thông báo đơn hàng bị huỷ",
+  ORDER_CANCEL_REQUEST_REJECTED = "IVY FASHION - Yêu cầu huỷ đơn hàng không được chấp nhận",
   ORDER_PAYMENT_SUCCESS = "IVY Fashion - thanh toán đơn hàng thành công",
   ORDER_PAYMENT_FAILED = "IVY Fashion - thanh toán đơn hàng thất bại",
 }

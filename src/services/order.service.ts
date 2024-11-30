@@ -10,13 +10,7 @@ import {
   NotAcceptableException,
 } from "@nestjs/common";
 
-import {
-  CancelOrderPayload,
-  CreateOrderPayload,
-  PaginationResponse,
-  ProcessOrderPayload,
-  UpdateOrderPayload,
-} from "@app/models";
+import { CancelOrderPayload, CreateOrderPayload, PaginationResponse, ProcessOrderPayload } from "@app/models";
 import { CartItem, Option, Order, OrderItem, OrderTransaction } from "@app/schemas";
 import { ErrorMessage, MailSubject, OrderStatus, PaymentMethod, TransactionStatus } from "@app/enums";
 import { ORDER_CACHE_PREFIX, VNPAY_FASHION_PRODUCT_TYPE } from "@app/constants";
@@ -250,12 +244,6 @@ export class OrderService extends RepositoryService<Order> {
     });
   }
 
-  async updateOrder(orderId: string, updates: UpdateOrderPayload): Promise<Order> {
-    const order = await this._model.findByIdAndUpdate(orderId, updates, { new: true });
-    if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
-    return order;
-  }
-
   async requestCancelOrder(orderId: string, userId: string): Promise<boolean> {
     const order: Order = await this.find(orderId, ["status", "user"]);
 
@@ -263,15 +251,11 @@ export class OrderService extends RepositoryService<Order> {
       throw new ForbiddenException(ErrorMessage.FORBIDDEN);
     }
 
-    if (
-      order.status != OrderStatus.PREPARING &&
-      order.status != OrderStatus.CANCELED &&
-      order.status != OrderStatus.COMPLETED
-    ) {
-      throw new NotAcceptableException(ErrorMessage.ORDER_CANT_CANCEL);
+    if (!this.isCanBeCanceledStatus(order.status)) {
+      throw new BadRequestException(ErrorMessage.ORDER_CANT_CANCEL);
     }
 
-    await this._model.updateOne({ _id: orderId }, { status: OrderStatus.CANCELING });
+    await this.update(orderId, { status: OrderStatus.CANCELING });
 
     return true;
   }
@@ -284,40 +268,27 @@ export class OrderService extends RepositoryService<Order> {
 
     if (!order) throw new BadRequestException(ErrorMessage.ORDER_NOT_FOUND);
 
+    if (!this.isCanBeCanceledStatus(order.status)) {
+      throw new BadRequestException(ErrorMessage.ORDER_CANT_CANCEL);
+    }
+
     return await withMutateTransaction<Order, void>(this._model, async (session) => {
-      const updateResult = await this._model.updateOne({ _id: orderId }, { status: OrderStatus.CANCELED }, { session });
+      if (payload.accept) {
+        const updateResult = await this.update({ _id: orderId }, { status: OrderStatus.CANCELED }, { session });
 
-      if (updateResult.modifiedCount <= 0) {
-        throw new InternalServerErrorException(ErrorMessage.ORDER_CANCEL_FAILED);
+        if (!updateResult) {
+          throw new InternalServerErrorException(ErrorMessage.ORDER_CANCEL_FAILED);
+        }
+
+        await this.paymentService.refundTransaction(
+          order.transaction.amount,
+          orderId,
+          ipAddress,
+          order.transaction.payDate,
+        );
       }
 
-      await this.paymentService.refundTransaction(
-        order.transaction.amount,
-        orderId,
-        ipAddress,
-        order.transaction.payDate,
-      );
-
-      const mailOptions: ISendMailOptions = {
-        to: order.email,
-        subject: MailSubject.ORDER_CANCELED,
-      };
-
-      if (order.status === OrderStatus.CANCELING) {
-        Object.assign(mailOptions, {
-          template: "order-canceled",
-          context: { user: order.name, orderId: orderId },
-        });
-      } else {
-        const { reason } = payload;
-
-        Object.assign(mailOptions, {
-          template: "order-canceled-by-admin",
-          context: { user: order.name, reason: reason },
-        });
-      }
-
-      this.mailerService.sendMail(mailOptions);
+      this.sendCancelOrderEmail(order, payload);
     });
   }
 
@@ -385,6 +356,46 @@ export class OrderService extends RepositoryService<Order> {
       },
       { totalCost: 0, discountCost: 0 },
     );
+  }
+
+  private sendCancelOrderEmail(order: Order, payload: CancelOrderPayload): void {
+    const mailOptions: ISendMailOptions = {
+      to: order.email,
+    };
+
+    if (order.status === OrderStatus.CANCELING) {
+      if (payload.accept) {
+        Object.assign(mailOptions, {
+          template: "order-canceled",
+          context: { user: order.name, orderId: order._id },
+          subject: MailSubject.ORDER_CANCELED,
+        });
+      } else {
+        Object.assign(mailOptions, {
+          template: "order-cancel-request-rejected",
+          context: { user: order.name, reason: payload.reason },
+          subject: MailSubject.ORDER_CANCEL_REQUEST_REJECTED,
+        });
+      }
+    } else {
+      Object.assign(mailOptions, {
+        template: "order-canceled-by-admin",
+        context: { user: order.name, reason: payload.reason },
+        subject: MailSubject.ORDER_CANCELED,
+      });
+    }
+
+    this.mailerService.sendMail(mailOptions);
+  }
+
+  private isCanBeCanceledStatus(status: OrderStatus) {
+    const preventCancelStatus: Array<OrderStatus> = [
+      OrderStatus.TRANSPORTING,
+      OrderStatus.CANCELED,
+      OrderStatus.COMPLETED,
+    ];
+
+    return !preventCancelStatus.includes(status);
   }
 
   async createPendingTransaction(amount: number, session: ClientSession): Promise<OrderTransaction> {
