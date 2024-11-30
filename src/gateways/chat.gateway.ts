@@ -145,17 +145,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async onTyping(@ConnectedSocket() client: Socket, @MessageBody() payload: ChatTypingPayload) {
     try {
       const isClientInAdminRoom = await this.isClientInAdminRoom(client.id);
+      const currentRoom = this.connectedClients.get(client.id);
 
-      if (!isClientInAdminRoom) {
-        const currentRoom = this.connectedClients.get(client.id);
-        if (!currentRoom || currentRoom !== payload.room) {
-          this.logger.error(`Client ${client.id} not in correct room for typing event`);
-          return;
-        }
+      if (!isClientInAdminRoom && (!currentRoom || currentRoom !== payload.room)) {
+        this.logger.error(`Client ${client.id} not in correct room for typing event`);
+        return;
       }
 
-      await this.server.to(CHAT_ADMIN_ROOM_ID).emit(ChatEvent.TYPING, payload.email);
-      await this.server.to(payload.room).emit(ChatEvent.TYPING, payload.email);
+      if (isClientInAdminRoom) {
+        await this.server.to(payload.room).emit(ChatEvent.TYPING, payload.email);
+      } else {
+        await this.server.to(CHAT_ADMIN_ROOM_ID).emit(ChatEvent.TYPING, payload.email);
+      }
+
       this.logger.log(`Typing event emitted for ${payload.email} in room ${payload.room}`);
     } catch (error) {
       this.logger.error(`Error handling typing event: ${error.message}`);
@@ -166,17 +168,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async onStopTyping(@ConnectedSocket() client: Socket, @MessageBody() payload: ChatTypingPayload) {
     try {
       const isClientInAdminRoom = await this.isClientInAdminRoom(client.id);
+      const currentRoom = this.connectedClients.get(client.id);
 
-      if (!isClientInAdminRoom) {
-        const currentRoom = this.connectedClients.get(client.id);
-        if (!currentRoom || currentRoom !== payload.room) {
-          this.logger.error(`Client ${client.id} not in correct room for stop typing event`);
-          return;
-        }
+      if (!isClientInAdminRoom && (!currentRoom || currentRoom !== payload.room)) {
+        this.logger.error(`Client ${client.id} not in correct room for typing event`);
+        return;
       }
 
-      await this.server.to(CHAT_ADMIN_ROOM_ID).emit(ChatEvent.STOP_TYPING, payload.email);
-      await this.server.to(payload.room).emit(ChatEvent.STOP_TYPING, payload.email);
+      if (isClientInAdminRoom) {
+        await this.server.to(payload.room).emit(ChatEvent.STOP_TYPING, payload.email);
+      } else {
+        await this.server.to(CHAT_ADMIN_ROOM_ID).emit(ChatEvent.STOP_TYPING, payload.email);
+      }
       this.logger.log(`Stop typing event emitted for ${payload.email} in room ${payload.room}`);
     } catch (error) {
       this.logger.error(`Error handling stop typing event: ${error.message}`);

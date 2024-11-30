@@ -165,7 +165,7 @@ export class OrderService extends RepositoryService<Order> {
         );
       }
 
-      return `${this.configService.get("CLIENT_URL")}/order/result?id=${orderId}`;
+      return `${this.configService.get("CLIENT_URL")}/order/result/${orderId}`;
     });
   }
 
