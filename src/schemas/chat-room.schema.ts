@@ -13,7 +13,7 @@ export class ChatRoom extends BaseSchema {
   messages: ChatMessage[];
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 }
 
 export const ChatRoomSchema = SchemaFactory.createForClass(ChatRoom);

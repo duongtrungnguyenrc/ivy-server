@@ -9,4 +9,5 @@ export enum ChatEvent {
   MESSAGE = "message",
   ADMIN_MESSAGE = "admin-message",
   ERROR = "error",
+  NEW_ROOM = "new-room",
 }

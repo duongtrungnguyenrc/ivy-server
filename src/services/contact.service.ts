@@ -66,11 +66,17 @@ export class ContactService {
       .find({ messages: { $ne: [] } })
       .populate({
         path: "messages",
-        options: { sort: { createdAt: -1 }, limit: 1 },
+        options: { sort: { createdAt: -1 }, limit: 10 },
       })
       .skip(skip)
       .limit(limit)
       .lean();
+
+    rooms.forEach((room) => {
+      if (room.messages && Array.isArray(room.messages)) {
+        room.messages = room.messages.reverse();
+      }
+    });
 
     const totalRooms: number = await this.chatRoomModel.countDocuments();
     const pages: number = totalRooms / limit;

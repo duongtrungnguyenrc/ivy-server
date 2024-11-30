@@ -24,7 +24,6 @@ export class ContactController {
   }
 
   @Get("/messages/:email")
-  @Auth()
   @ApiPagination()
   async getRoomMessages(
     @Param("email") email: string,

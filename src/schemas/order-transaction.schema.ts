@@ -15,7 +15,7 @@ export class OrderTransaction extends BaseSchema {
   status: TransactionStatus;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;

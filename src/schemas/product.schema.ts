@@ -19,7 +19,7 @@ export class Product extends BaseSchema {
   material: string;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;

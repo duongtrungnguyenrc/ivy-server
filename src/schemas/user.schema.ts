@@ -39,7 +39,7 @@ export class User extends BaseSchema {
   isLocked: boolean;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;

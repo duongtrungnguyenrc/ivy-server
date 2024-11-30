@@ -12,7 +12,7 @@ export class ChatMessage extends BaseSchema {
   message: string;
 
   @Prop({ type: Date })
-  createAt: Date;
+  createdAt: Date;
 
   @Prop({ type: Date })
   updatedAt: Date;
